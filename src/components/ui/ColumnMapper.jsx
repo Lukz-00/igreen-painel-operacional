@@ -112,23 +112,27 @@ function autoDetect(headers, aliases) {
   return ''
 }
 
-export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, onConfirm, onCancel }) {
+export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, savedMapping, onConfirm, onCancel }) {
   const schema = SCHEMAS[schemaKey] || []
   const [mapping, setMapping] = useState({})
   const [ucMode, setUcMode] = useState('uc') // 'uc' | 'num_cliente'
   const prevOpenRef = useRef(false)
 
-  // Auto-detectar APENAS quando o modal abre (false → true).
-  // Não resetar se headers mudar de referência enquanto o modal já está aberto.
+  // Ao abrir (false → true): restaura mapeamento salvo se existir, senão auto-detecta.
+  // Não resetar se apenas headers mudar de referência enquanto o modal já está aberto.
   useEffect(() => {
     const justOpened = open && !prevOpenRef.current
     prevOpenRef.current = open
     if (!justOpened || !headers.length) return
-    const detected = {}
-    schema.forEach(f => {
-      detected[f.key] = autoDetect(headers, f.aliases)
-    })
-    setMapping(detected)
+    if (savedMapping) {
+      setMapping(savedMapping)
+    } else {
+      const detected = {}
+      schema.forEach(f => {
+        detected[f.key] = autoDetect(headers, f.aliases)
+      })
+      setMapping(detected)
+    }
     setUcMode('uc')
   }, [open, headers, schemaKey])
 

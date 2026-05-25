@@ -255,9 +255,10 @@ export function ConciliacaoBase({ fornecedora = '' }) {
   const [rawRec,    setRawRec]    = useState(null); const [dfRec,    setDfRec]    = useState(null); const [nRec,    setNRec]    = useState('')
   const [rawStatus, setRawStatus] = useState(null); const [dfStatus, setDfStatus] = useState(null); const [nStatus, setNStatus] = useState('')
 
-  const [mapperOpen, setMapperOpen] = useState(false)
-  const [mapperFor,  setMapperFor]  = useState(null)
-  const [mapperRaw,  setMapperRaw]  = useState([])
+  const [mapperOpen,    setMapperOpen]    = useState(false)
+  const [mapperFor,     setMapperFor]     = useState(null)
+  const [mapperRaw,     setMapperRaw]     = useState([])
+  const [savedMappings, setSavedMappings] = useState({})
 
   const [res,  setRes]  = useState(null)
   const [aba,  setAba]  = useState('m1')
@@ -268,6 +269,7 @@ export function ConciliacaoBase({ fornecedora = '' }) {
     setRawFin(null);    setDfFin(null);    setNFin('')
     setRawRec(null);    setDfRec(null);    setNRec('')
     setRawStatus(null); setDfStatus(null); setNStatus('')
+    setSavedMappings({})
     setRes(null); setAba('m1')
   }
 
@@ -277,12 +279,16 @@ export function ConciliacaoBase({ fornecedora = '' }) {
     try {
       const rows = await lerXlsx(file)
       rawSetter(rows); nameSetter(file.name); setRes(null)
+      // Limpa o mapeamento salvo deste slot — novo arquivo pode ter colunas diferentes
+      setSavedMappings(prev => ({ ...prev, [mapperKey]: null }))
       abrirMapper(mapperKey, rows)
     } catch (e) { alert('Erro ao ler arquivo: ' + e.message) }
   }
 
-  const handleMapperConfirm = remapped => {
+  const handleMapperConfirm = (remapped, mapping) => {
     setMapperOpen(false)
+    // Persiste o mapeamento confirmado para restaurar se o lápis reabrir
+    setSavedMappings(prev => ({ ...prev, [mapperFor]: mapping }))
     if (mapperFor === 'base')   setDfBase(remapped)
     if (mapperFor === 'fin')    setDfFin(remapped)
     if (mapperFor === 'rec')    setDfRec(remapped)
@@ -331,6 +337,7 @@ export function ConciliacaoBase({ fornecedora = '' }) {
         schemaKey={cfg.schemaKey || ''}
         title={cfg.title || ''}
         fileName={mapperFor === 'base' ? nBase : mapperFor === 'fin' ? nFin : mapperFor === 'rec' ? nRec : nStatus}
+        savedMapping={savedMappings[mapperFor] || null}
         onConfirm={handleMapperConfirm}
         onCancel={() => setMapperOpen(false)}
       />
