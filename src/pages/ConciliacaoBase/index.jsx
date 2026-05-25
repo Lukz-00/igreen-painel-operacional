@@ -68,29 +68,32 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
   })
 
   const buckets = {
+    m_cancelados:[],
     m1:[], m2:[], m3:[], m5:[], m6:[], m7:[], m8:[],
     m10:[], m11:[], m12:[], m14:[], m15:[], m16:[],
     m17:[], m18:[], m19:[], m21:[], m0:[],
   }
 
   dfBase.forEach(row => {
-    const cod       = normCod(row['_gmap_codigo']            || '')
-    const dataAtivo = String(row['_gmap_data_ativo']         || '').trim()
-    const dataCanc  = String(row['_gmap_data_cancelamento']  || '').trim()
-    const devBKO    = String(row['_gmap_devolutiva']         || '').trim()
-    const statusBKO = String(row['_gmap_status']             || '').trim().toUpperCase()
+    const cod             = normCod(row['_gmap_codigo']            || '')
+    const dataAtivo       = String(row['_gmap_data_ativo']         || '').trim()
+    const dataCanc        = String(row['_gmap_data_cancelamento']  || '').trim()
+    const devBKO          = String(row['_gmap_devolutiva']         || '').trim()
+    const statusBKO       = String(row['_gmap_status']             || '').trim().toUpperCase()
+    const validadoSucesso = String(row['_gmap_validado_sucesso']   || '').trim().toUpperCase()
 
-    const finalizado = setFin.has(cod)
-    const boletando  = setRec.has(cod)
-    const gv         = mapGV[cod] || { obs: '', rateio: '' }
-    const obsGV      = gv.obs.toUpperCase()
-    const rateioGV   = gv.rateio.toUpperCase()
+    const finalizado  = setFin.has(cod)
+    const boletando   = setRec.has(cod)
+    const hasGVStatus = !!mapGV[cod]
+    const gv          = mapGV[cod] || { obs: '', rateio: '' }
+    const obsGV       = gv.obs.toUpperCase()
+    const rateioGV    = gv.rateio.toUpperCase()
 
-    const dias          = parseDias(dataAtivo)
-    const meses         = dias !== null ? +(dias / 30).toFixed(1) : null
-    const temDataAtivo  = dias !== null && dias >= 0
-    const canceladoGV   = temTermo(obsGV, CANCEL_GV) || temTermo(rateioGV, CANCEL_GV)
-    const canceladoBKO  = !!dataCanc || temTermo(devBKO, CANCEL_BKO)
+    const dias         = parseDias(dataAtivo)
+    const meses        = dias !== null ? +(dias / 30).toFixed(1) : null
+    const temDataAtivo = dias !== null && dias >= 0
+    const canceladoGV  = temTermo(obsGV, CANCEL_GV) || temTermo(rateioGV, CANCEL_GV)
+    const canceladoBKO = !!dataCanc || temTermo(devBKO, CANCEL_BKO)
 
     const rec = {
       ...row,
@@ -103,13 +106,16 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
     }
 
     const marcar = (key, label) => { rec['Marcação'] = label; buckets[key].push(rec) }
+    const cancelarBKO = () => marcar('m_cancelados', 'C — Cancelados BackOffice')
 
     // ── Prioridades globais ─────────────────────────────────────────────────
     if (obsGV.includes('AUMENTAR CONSUMO') || rateioGV.includes('AUMENTAR CONSUMO'))
       return marcar('m21', '21 — Aumentar Consumo')
 
-    if (!boletando && temTermo(obsGV, REJEICAO))
+    if (!boletando && temTermo(obsGV, REJEICAO)) {
+      if (!temDataAtivo && devBKO) return cancelarBKO()
       return marcar('m5', '5 — Equipe de Devolutivas')
+    }
 
     // ── Grupo A: NÃO está na GV E NÃO está boletando ───────────────────────
     if (!finalizado && !boletando) {
@@ -117,47 +123,51 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
         if (statusBKO.includes('EM VALIDAÇ') || statusBKO.includes('EM VALIDAC'))
           return marcar('m16', '16 — Andressa Verificar')
         if (!canceladoBKO && dias > 300)
-          return marcar('m8',  '8 — Represado > 10 meses')
+          return devBKO ? cancelarBKO() : marcar('m8', '8 — Represado > 10 meses')
         if (!canceladoBKO && dias > 90)
-          return marcar('m14', '14 — Realocação')
+          return devBKO ? cancelarBKO() : marcar('m14', '14 — Realocação')
         if (!canceladoBKO)
-          return marcar('m12', '12 — OK > Não enviado')
+          return devBKO ? cancelarBKO() : marcar('m12', '12 — OK > Não enviado')
       } else {
         if (!devBKO) {
           if (statusBKO.includes('VALIDADO') || statusBKO.includes('REPROVADO'))
             return marcar('m17', '17 — #N/D Sem devolutiva Sem data ativo')
-          return marcar('m18', '18 — Cadastro sem assinatura > Não enviado')
+          if (!validadoSucesso && !rateioGV)
+            return marcar('m18', '18 — Cadastro sem assinatura > Não enviado')
+        } else {
+          return cancelarBKO()
         }
-        return marcar('m1', '1 — Clientes OK')
       }
     }
 
     // ── Grupo B: NÃO está na GV, MAS está boletando ────────────────────────
     if (!finalizado && boletando) {
-      if (!temDataAtivo)
+      if (!hasGVStatus)
         return marcar('m15', '15 — Não encontrado na GV')
     }
 
     // ── Grupo C: ESTÁ na base de Finalizados da GV ──────────────────────────
     if (finalizado) {
       if (canceladoGV) {
-        if (canceladoBKO)
+        if (!temDataAtivo)
           return marcar('m6', '6 — Cancelado em ambas partes')
-        if (temDataAtivo && !dataCanc)
+        if (!canceladoBKO && !dataCanc)
           return marcar('m3', '3 — Cancelado GV > Cancelar BKO')
       } else {
         // Ativo na GV
         if (canceladoBKO) {
           if (boletando && !temDataAtivo && !!dataCanc)
-            return marcar('m2',  '2 — Boletando > Sem data ativo')
+            return devBKO ? cancelarBKO() : marcar('m2', '2 — Boletando > Sem data ativo')
           if (statusBKO.includes('VALIDADO') && !boletando)
             return marcar('m19', '19 — Enviado GV > Cancelar BKO')
           if (temTermo(devBKO, CANCEL_BKO))
             return marcar('m11', '11 — Cancelado BKO > Ativo Fornecedora')
         } else {
           if (boletando)
-            return marcar('m10', '10 — Aguardando retorno Fornecedora')
-          return marcar('m7', '7 — Clientes em atraso')
+            return devBKO ? cancelarBKO() : marcar('m10', '10 — Aguardando retorno Fornecedora')
+          if (temDataAtivo && !devBKO)
+            return marcar('m7', '7 — Clientes em atraso')
+          return cancelarBKO()
         }
       }
     }
@@ -207,24 +217,25 @@ function exportarConciliacao(res, fornecedora) {
 // ── marcações config ────────────────────────────────────────────────────────
 
 const MARCACOES = [
-  { key:'m1',  num:1,  label:'1 — Clientes OK',                     cor:'#22c55e' },
-  { key:'m2',  num:2,  label:'2 — Boletando > Sem data ativo',      cor:'#3b82f6' },
-  { key:'m3',  num:3,  label:'3 — Cancelado GV > Cancelar BKO',     cor:'#ef4444' },
-  { key:'m5',  num:5,  label:'5 — Equipe de Devolutivas',            cor:'#f97316' },
-  { key:'m6',  num:6,  label:'6 — Cancelado em ambas partes',       cor:'#64748b' },
-  { key:'m7',  num:7,  label:'7 — Clientes em atraso',               cor:'#dc2626' },
-  { key:'m8',  num:8,  label:'8 — Represado > 10 meses',            cor:'#7c3aed' },
-  { key:'m10', num:10, label:'10 — Aguardando retorno Fornecedora',  cor:'#0ea5e9' },
-  { key:'m11', num:11, label:'11 — Cancelado BKO > Ativo Forn.',     cor:'#f59e0b' },
-  { key:'m12', num:12, label:'12 — OK > Não enviado',                cor:'#10b981' },
-  { key:'m14', num:14, label:'14 — Realocação',                      cor:'#8b5cf6' },
-  { key:'m15', num:15, label:'15 — Não encontrado na GV',            cor:'#ec4899' },
-  { key:'m16', num:16, label:'16 — Andressa Verificar',              cor:'#06b6d4' },
-  { key:'m17', num:17, label:'17 — #N/D Sem dev. Sem data ativo',    cor:'#94a3b8' },
-  { key:'m18', num:18, label:'18 — Cadastro sem assinatura',         cor:'#a1a1aa' },
-  { key:'m19', num:19, label:'19 — Enviado GV > Cancelar BKO',       cor:'#f43f5e' },
-  { key:'m21', num:21, label:'21 — Aumentar Consumo',                cor:'#84cc16' },
-  { key:'m0',  num:0,  label:'0 — Não classificado',                 cor:'#334155' },
+  { key:'m1',           num:1,   label:'1 — Clientes OK',                     cor:'#22c55e' },
+  { key:'m2',           num:2,   label:'2 — Boletando > Sem data ativo',      cor:'#3b82f6' },
+  { key:'m3',           num:3,   label:'3 — Cancelado GV > Cancelar BKO',     cor:'#ef4444' },
+  { key:'m5',           num:5,   label:'5 — Equipe de Devolutivas',            cor:'#f97316' },
+  { key:'m6',           num:6,   label:'6 — Cancelado em ambas partes',        cor:'#64748b' },
+  { key:'m7',           num:7,   label:'7 — Clientes em atraso',               cor:'#dc2626' },
+  { key:'m8',           num:8,   label:'8 — Represado > 10 meses',             cor:'#7c3aed' },
+  { key:'m10',          num:10,  label:'10 — Aguardando retorno Fornecedora',  cor:'#0ea5e9' },
+  { key:'m11',          num:11,  label:'11 — Cancelado BKO > Ativo Forn.',     cor:'#f59e0b' },
+  { key:'m12',          num:12,  label:'12 — OK > Não enviado',                cor:'#10b981' },
+  { key:'m14',          num:14,  label:'14 — Realocação',                      cor:'#8b5cf6' },
+  { key:'m15',          num:15,  label:'15 — Não encontrado na GV',            cor:'#ec4899' },
+  { key:'m16',          num:16,  label:'16 — Andressa Verificar',              cor:'#06b6d4' },
+  { key:'m17',          num:17,  label:'17 — #N/D Sem dev. Sem data ativo',    cor:'#94a3b8' },
+  { key:'m18',          num:18,  label:'18 — Cadastro sem assinatura',         cor:'#a1a1aa' },
+  { key:'m19',          num:19,  label:'19 — Enviado GV > Cancelar BKO',       cor:'#f43f5e' },
+  { key:'m21',          num:21,  label:'21 — Aumentar Consumo',                cor:'#84cc16' },
+  { key:'m_cancelados', num:'C', label:'C — Cancelados BackOffice',            cor:'#1e293b' },
+  { key:'m0',           num:0,   label:'0 — Não classificado',                 cor:'#334155' },
 ]
 
 // ── mapper config ───────────────────────────────────────────────────────────
