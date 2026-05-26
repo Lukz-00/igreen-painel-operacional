@@ -132,7 +132,7 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
         if (!devBKO) {
           if (statusBKO.includes('VALIDADO') || statusBKO.includes('REPROVADO'))
             return marcar('m17', '17 — #N/D Sem devolutiva Sem data ativo')
-          if (!validadoSucesso && !rateioGV)
+          if ((validadoSucesso === 'NÃO' || validadoSucesso === 'NAO') && !rateioGV)
             return marcar('m18', '18 — Cadastro sem assinatura > Não enviado')
         } else {
           return cancelarBKO()
