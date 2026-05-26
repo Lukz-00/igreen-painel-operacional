@@ -1,14 +1,11 @@
 import { useApp } from '../../context/AppContext'
 
 const TITULOS = {
-  home: { bc:'Início', titulo:'Visão Geral' },
-  faturamento: { bc:'Operações Financeiras', titulo:'Cruzamento Pagadoria × Recebíveis' },
-  'ivolt-gv':    { bc:'Análise de Injeção', titulo:'GV / Northen' },
-  'ivolt-sunne': { bc:'Análise de Injeção', titulo:'SUNNE' },
-  'ivolt-edp':   { bc:'Análise de Injeção', titulo:'EDP' },
-  thopen:        { bc:'Gestão Energizada', titulo:'Thopen — Atraso de Injeção' },
-  classificador: { bc:'Jornada do Cliente', titulo:'Classificador de Status' },
-  boletos:       { bc:'Ferramentas', titulo:'Central de Boletos' },
+  home:          { bc:'Início',                titulo:'Visão Geral' },
+  faturamento:   { bc:'Operações Financeiras', titulo:'Cruzamento Pagadoria × Recebíveis' },
+  'ivolt-gv':    { bc:'Conciliação de Base',   titulo:'GV' },
+  'ivolt-sunne': { bc:'Conciliação de Base',   titulo:'SUNNE' },
+  'ivolt-edp':   { bc:'Conciliação de Base',   titulo:'EDP' },
 }
 
 export function Topbar() {

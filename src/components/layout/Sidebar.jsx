@@ -1,4 +1,4 @@
-import { ChevronRight, Search, BarChart2, Zap, Briefcase, TrendingUp, Users, FileText, Home } from 'lucide-react'
+import { ChevronRight, BarChart2, TrendingUp, Home } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 
 const MENU = [
@@ -9,17 +9,9 @@ const MENU = [
     { id:'ivolt-sunne', label:'SUNNE' },
     { id:'ivolt-edp',   label:'EDP' },
   ]},
-  { id:'energizada', label:'Gestão Energizada', icon:Zap, tipo:'grupo', filhos:[
-    { id:'thopen', label:'Thopen — Atraso' },
-  ]},
   { id:'financeiro', label:'Operações Financeiras', icon:TrendingUp, tipo:'grupo', filhos:[
     { id:'faturamento', label:'Pagadoria' },
   ]},
-  { id:'jornada', label:'Jornada do Cliente', icon:Users, tipo:'grupo', filhos:[
-    { id:'classificador', label:'Classificador de Status' },
-  ]},
-  { tipo:'divider' },
-  { id:'boletos', label:'Central de Boletos', icon:FileText, tipo:'item' },
 ]
 
 export function Sidebar() {

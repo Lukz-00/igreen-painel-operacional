@@ -3,9 +3,6 @@ import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
 import { Home } from './pages/Home'
 import { Faturamento } from './pages/Faturamento'
-import { Thopen } from './pages/Thopen'
-import { Jornada } from './pages/Jornada'
-import { Boletos } from './pages/Boletos'
 import { ConciliacaoBase } from './pages/ConciliacaoBase'
 
 function Router() {
@@ -13,12 +10,9 @@ function Router() {
   const pages = {
     home: <Home />,
     faturamento: <Faturamento />,
-    thopen: <Thopen />,
     'ivolt-gv':    <ConciliacaoBase fornecedora="GV" />,
     'ivolt-sunne': <ConciliacaoBase fornecedora="SUNNE" />,
     'ivolt-edp':   <ConciliacaoBase fornecedora="EDP" />,
-    classificador: <Jornada />,
-    boletos: <Boletos />,
   }
   return pages[paginaAtual] ?? <Home />
 }

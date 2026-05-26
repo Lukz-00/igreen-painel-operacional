@@ -1,11 +1,8 @@
 import { useApp } from '../context/AppContext'
 
 const CARDS = [
-  { id:'faturamento',  emoji:'💰', titulo:'Cruzamento Pagadoria', desc:'Cruze Pagadoria × Recebíveis com cascading join por UC + Mês', cor:'#22c55e' },
-  { id:'ivolt-gv',     emoji:'⚡', titulo:'Análise de Injeção',   desc:'Classifique clientes GV, SUNNE e EDP por status de injeção',  cor:'#a855f7' },
-  { id:'thopen',       emoji:'🏭', titulo:'Thopen — Atraso',      desc:'Identifique clientes Thopen sem boleto além de 90 dias',       cor:'#3b82f6' },
-  { id:'classificador',emoji:'🗺', titulo:'Jornada do Cliente',   desc:'Classifique planilhas nos 8 status da Jornada iGreen',         cor:'#f59e0b' },
-  { id:'boletos',      emoji:'📄', titulo:'Central de Boletos',   desc:'Repositório central de boletos de todas as fornecedoras',      cor:'#f97316' },
+  { id:'faturamento', emoji:'💰', titulo:'Cruzamento Pagadoria', desc:'Cruze Pagadoria × Recebíveis com cascading join por UC + Mês', cor:'#22c55e' },
+  { id:'ivolt-gv',    emoji:'⚡', titulo:'Conciliação de Base',  desc:'Classifique clientes GV, SUNNE e EDP conforme POP 03',         cor:'#a855f7' },
 ]
 
 export function Home() {
