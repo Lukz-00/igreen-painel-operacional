@@ -142,8 +142,10 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
 
     // ── Grupo B: NÃO está na GV, MAS está boletando ────────────────────────
     if (!finalizado && boletando) {
-      if (!hasGVStatus)
+      if (!hasGVStatus) {
+        if (!temDataAtivo && devBKO) return cancelarBKO()
         return marcar('m15', '15 — Não encontrado na GV')
+      }
     }
 
     // ── Grupo C: ESTÁ na base de Finalizados da GV ──────────────────────────
