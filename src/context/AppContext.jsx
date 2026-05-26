@@ -1,19 +1,19 @@
 import { createContext, useContext, useState } from 'react'
 
-const Ctx = createContext(null)
+const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const [paginaAtual, setPaginaAtual] = useState('home')
-  const [sidebarAberto, setSidebarAberto] = useState({})
+  const [currentPage, setCurrentPage] = useState('home')
+  const [openGroups, setOpenGroups]   = useState({})
 
-  const navegarPara = (pagina) => setPaginaAtual(pagina)
-  const toggleGrupo = (id) => setSidebarAberto(prev => ({ ...prev, [id]: !prev[id] }))
+  const navigate     = (page) => setCurrentPage(page)
+  const toggleGroup  = (id)   => setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }))
 
   return (
-    <Ctx.Provider value={{ paginaAtual, navegarPara, sidebarAberto, toggleGrupo }}>
+    <AppContext.Provider value={{ currentPage, navigate, openGroups, toggleGroup }}>
       {children}
-    </Ctx.Provider>
+    </AppContext.Provider>
   )
 }
 
-export const useApp = () => useContext(Ctx)
+export const useApp = () => useContext(AppContext)

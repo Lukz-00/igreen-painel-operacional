@@ -6,15 +6,15 @@ import { Faturamento } from './pages/Faturamento'
 import { ConciliacaoBase } from './pages/ConciliacaoBase'
 
 function Router() {
-  const { paginaAtual } = useApp()
+  const { currentPage } = useApp()
   const pages = {
-    home: <Home />,
-    faturamento: <Faturamento />,
-    'ivolt-gv':    <ConciliacaoBase fornecedora="GV" />,
-    'ivolt-sunne': <ConciliacaoBase fornecedora="SUNNE" />,
-    'ivolt-edp':   <ConciliacaoBase fornecedora="EDP" />,
+    home:         <Home />,
+    faturamento:  <Faturamento />,
+    'base-gv':    <ConciliacaoBase fornecedora="GV" />,
+    'base-sunne': <ConciliacaoBase fornecedora="SUNNE" />,
+    'base-edp':   <ConciliacaoBase fornecedora="EDP" />,
   }
-  return pages[paginaAtual] ?? <Home />
+  return pages[currentPage] ?? <Home />
 }
 
 function Layout() {
