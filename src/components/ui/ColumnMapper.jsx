@@ -52,8 +52,9 @@ const SCHEMAS = {
     { key:'data_cancelamento',  label:'Data Cancelamento',      required:false, aliases:['Data Cancelamento','DataCancelamento','data_cancelamento','Dt Cancelamento','Data de Cancelamento','Dt Cancel'] },
     { key:'devolutiva',         label:'Devolutiva Interna',     required:false, aliases:['Devolutiva','Devolutiva Interna','devolutiva','devolutiva_interna','Retorno','retorno'] },
     { key:'validado_sucesso',   label:'Validado Sucesso',       required:false, aliases:['Validado Sucesso','ValidadoSucesso','validado_sucesso','Validado com Sucesso','Val. Sucesso','Validacao Sucesso','Validação Sucesso'] },
-    { key:'jornada_status',    label:'Jornada Status',         required:false, aliases:['Jornada Status','JornadaStatus','jornada_status','Jornada de Status','Status Jornada'] },
-    { key:'jornada_etapa',     label:'Jornada Etapa',          required:false, aliases:['Jornada Etapa','JornadaEtapa','jornada_etapa','Etapa Jornada','Etapa da Jornada'] },
+    { key:'rateio',         label:'Rateio (BKO)',           required:false, aliases:['Rateio','rateio','Rateio GV','RateioGV','rateio_gv','AR','ar'] },
+    { key:'jornada_status', label:'Jornada Status',          required:false, aliases:['Jornada Status','JornadaStatus','jornada_status','Jornada de Status','Status Jornada'] },
+    { key:'jornada_etapa',  label:'Jornada Etapa',           required:false, aliases:['Jornada Etapa','JornadaEtapa','jornada_etapa','Etapa Jornada','Etapa da Jornada'] },
     { key:'status',            label:'Status / Jornada',       required:false, aliases:['Status','status','Situação','situacao','Status Cliente','Jornada','Etapa','Etapa Jornada'] },
     { key:'nome',              label:'Nome do Cliente',        required:false, aliases:['Nome','nome','Cliente','Nome Cliente','NomeCliente'] },
   ],
@@ -64,6 +65,7 @@ const SCHEMAS = {
   conc_rec: [
     { key:'codigo', label:'Código / ID do Cliente', required:true, aliases:['Código','Codigo','codigo','cod_cliente','ID','UC','Instalação','Instalacao','instalacao','Número Cliente','NumeroCliente','numero_cliente'] },
     { key:'nome',   label:'Nome do Cliente',        required:false, aliases:['Nome','nome','Cliente','Nome Cliente'] },
+    { key:'idrcb', label:'ID Recebível (IDRCB)', required:false, aliases:['Idrcb','idrcb','id_rcb','Recebimento (Identificador)','ID Recebimento','ID Rcb'] },
   ],
   gv_rec: [
     { key:'codigo',        label:'Código / Nº Cliente',  required:true,  aliases:['Código','Codigo','codigo','Numero Cliente','NumeroCliente','numero_cliente','cod_cliente'] },
