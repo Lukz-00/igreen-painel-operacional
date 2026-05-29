@@ -156,6 +156,7 @@ const ABAS = [
   { key:'divergentes',           label:'Status Divergentes',      cor:'#ef4444' },
   { key:'faltaRec',              label:'Falta nos Recebíveis',    cor:'#f59e0b' },
   { key:'faltaPag',              label:'Falta na Pagadoria',      cor:'#a855f7' },
+  { key:'coincidentes',          label:'Coincidentes',            cor:'#22c55e' },
   { key:'duplicidadesPag',       label:'Duplicidades',            cor:'#94a3b8' },
   { key:'northenNaoExiste',      label:'Northen — Não em Rec.',   cor:'#ef4444' },
   { key:'northenExisteEmAmbas',  label:'Northen — Existe em Ambas', cor:'#22c55e' },
@@ -342,6 +343,7 @@ export function Faturamento() {
             <MetricCard label="Status Divergentes"  value={resultado.divergentes.length}                         sub="conflito"        color="#ef4444" onClick={() => setAbaAtiva('divergentes')} />
             <MetricCard label="Falta nos Recebíveis"value={resultado.faltaRec.length}                            sub="só na Pagadoria" color="#f59e0b" onClick={() => setAbaAtiva('faltaRec')} />
             <MetricCard label="Falta na Pagadoria"  value={resultado.faltaPag.length}                            sub="só nos Receb."   color="#a855f7" onClick={() => setAbaAtiva('faltaPag')} />
+            <MetricCard label="Coincidentes"        value={resultado.coincidentes.length}                        sub="status ok"       color="#22c55e" onClick={() => setAbaAtiva('coincidentes')} />
             <MetricCard label="Duplicidades"        value={(resultado.duplicidadesPag||[]).length}               sub="linhas idênticas"color="#94a3b8" onClick={() => setAbaAtiva('duplicidadesPag')} />
           </div>
 
