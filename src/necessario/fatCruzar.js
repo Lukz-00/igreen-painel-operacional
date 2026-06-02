@@ -140,9 +140,6 @@ function extrairPag(r) {
     "mes_referencia",
     "MesReferencia",
     "mesreferencia",
-    "DATA DO DOCUMENTO",  // BC Energia (Memória de Cálculo)
-    "Data do Documento",
-    "DataDocumento",
   ]);
   const cpfRaw = getField(r, [
     "CPF/CNPJ",
@@ -157,7 +154,6 @@ function extrairPag(r) {
     _uc_norm: normUC(ucRaw),
     _mes_norm: normalizarMes(mesRaw),
     _cpf_norm: normUC(cpfRaw),
-    _raw: r,
     ucRaw,
     mesRaw,
     cpfRaw,
@@ -190,10 +186,6 @@ function extrairPag(r) {
         "Valor",
         "valorapagar",
         "valor_liquido_fatura_fornecedora", // BackOffice
-        "VALOR DO ITEM/SERVI\u00c7O",  // BC Energia
-        "VALOR DA NF-E",             // BC Energia
-        "Valor do Item",
-        "Valor do Servico",
       ]),
     ),
     valorPago: fmtValor(
@@ -201,8 +193,6 @@ function extrairPag(r) {
         "Valor pago pelo cliente (R$)", // Solatio
         "Valor Pago",
         "valor_pago",
-        "VALOR RECEBIDO DO ITEM/SERVI\u00c7O", // BC Energia
-        "Valor Recebido",
       ]),
     ),
     venc: fmtData(
@@ -214,8 +204,6 @@ function extrairPag(r) {
         "dtvencimento",
         "Vencimento fatura",
         "VencimentoFatura",
-        "DATA DE VENCIMENTO", // BC Energia
-        "Data de Vencimento",
       ]),
     ),
     pagto: fmtData(
@@ -247,13 +235,12 @@ function extrairPag(r) {
       "url_boleto",
       "URL Boleto", // BackOffice
     ]),
-    favorecido: getField(r, ["Favorecido", "nome_cliente", "Nome", "Cliente", "NOME DO CLIENTE/FORNECEDOR"]),
+    favorecido: getField(r, ["Favorecido", "nome_cliente", "Nome", "Cliente"]),
     consorciado: getField(r, [
       "Consorciado",
       "nome_cliente",
       "Nome",
       "Cliente",
-      "NOME DO CLIENTE/FORNECEDOR",
     ]),
     nomeCliente: getField(r, [
       "Nome do Cliente",
@@ -264,7 +251,6 @@ function extrairPag(r) {
       "Cliente",
       "Favorecido",
       "Consorciado",
-      "NOME DO CLIENTE/FORNECEDOR", // BC Energia
     ]),
     dataEmissao: fmtData(
       getField(r, [
@@ -280,8 +266,6 @@ function extrairPag(r) {
       "Distribuidora",
       "distribuidora",
       "DISTRIBUIDORA",
-      "EMPRESA DO FATURAMENTO", // BC Energia
-      "Empresa do Faturamento",
     ]),
     energiaCompensada: getField(r, [
       "Energia Compensada",
@@ -297,32 +281,6 @@ function extrairPag(r) {
       "Repasse",
     ]),
   };
-}
-
-// ── Detecção de Provider da Pagadoria ───────────────────────────
-// Inspeciona os cabeçalhos da planilha para identificar qual
-// fornecedora/distribuidora originou a pagadoria.
-function detectProvider(dfPag) {
-  if (!dfPag || !dfPag.length) return 'outros'
-  const allKeys = Object.keys(dfPag[0]).map(k => k.toLowerCase())
-  const hasKey  = (...terms) => terms.some(t => allKeys.some(k => k.includes(t)))
-
-  // Northen/Energisa: tem colunas com "norten" ou "northen", e não tem "edp"
-  if (hasKey('norten', 'northen') && !hasKey('cobranca', 'cob.')) return 'northen'
-
-  // GV-Interno: tem "distribuidora" mas não tem "norten"
-  // Tipicamente tem coluna de "Distribuidora" e "Repasse Distribuidora"
-  if (hasKey('repasse distribuidora', 'repasse_distribuidora')) return 'gv_interno'
-
-  return 'outros'
-}
-
-// ── Normalização de Região do Fornecedor (Rec) ─────────────────
-function normRegiao(v) {
-  const s = String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-  if (s.includes('northen') || s.includes('norten') || s.includes('energisa')) return 'northen'
-  if (s.includes('gv') || s.includes('consorcio') || s.includes('interno')) return 'gv_interno'
-  return null
 }
 
 // ── Extrator Recebíveis ────────────────────────────────────────
@@ -367,7 +325,6 @@ function extrairRec(r) {
     _num_cliente_norm: normUC(ncRaw),
     _cpf_norm: normUC(cpfRaw),
     _mes_norm: normalizarMes(mesRaw),
-    _raw: r,
     ucRaw: ucRaw || ncRaw,
     mesRaw,
     cpfRaw,
@@ -468,26 +425,10 @@ function extrairRec(r) {
       "Link Boleto",
       "linkboleto",
     ]),
-    concessionaria: getField(r, [
-      "Concessionaria",
-      "concessionaria",
-      "Concessionária",
-      "Distribuidora",
-      "distribuidora",
-    ]),
-    _regiao_rec: normRegiao(
-      getField(r, ['Fornecedora', 'cfornecedora', 'fornecedora', 'Organização', 'Organizacao', 'Distribuidora'])
-    ),
   };
 }
 
 // ── Cascading Join ─────────────────────────────────────────────
-// Quando há múltiplos candidatos REC para a mesma chave UC|Mês,
-// aplica desambiguação em 3 níveis antes do fallback:
-//   1. CPF exato (PAG._cpf_norm === REC._cpf_norm)
-//   2. Nome normalizado (PAG.consorciado/favorecido === REC.cliente)
-//   3. Distribuidora/Concessionária (PAG.distribuidora ≈ REC.concessionaria)
-// Isso resolve o caso de duas instalações com o mesmo número em distribuidoras distintas.
 function cascadeJoin(pagRows, recRows, pagKey, recKey, etapa, onLog) {
   const idxRec = {};
   recRows.forEach((r, i) => {
@@ -498,15 +439,6 @@ function cascadeJoin(pagRows, recRows, pagKey, recKey, etapa, onLog) {
   const pagOrfaos = [],
     recUsados = new Set(),
     matches = [];
-
-  const normStr = (s) =>
-    String(s || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '')
-      .trim();
-
   pagRows.forEach((rP) => {
     const k = (rP[pagKey] || "") + "|" + (rP._mes_norm || "");
     const cands = idxRec[k] || [];
@@ -514,53 +446,7 @@ function cascadeJoin(pagRows, recRows, pagKey, recKey, etapa, onLog) {
       pagOrfaos.push(rP);
       return;
     }
-    const available = cands.filter((c) => !recUsados.has(c.i));
-    if (!available.length) {
-      pagOrfaos.push(rP);
-      return;
-    }
-
-    let cand;
-
-    if (available.length === 1) {
-      // Caso simples: apenas um candidato disponível
-      cand = available[0];
-    } else {
-      // ── Tiebreaker 1: CPF exato ──────────────────────────────
-      const cpfPag = rP._cpf_norm;
-      if (cpfPag) {
-        cand = available.find(c => c.row._cpf_norm === cpfPag);
-      }
-
-      // ── Tiebreaker 2: nome normalizado do cliente ─────────────
-      if (!cand) {
-        const nomePag = normStr(rP.consorciado || rP.favorecido || rP.nomeCliente || '');
-        if (nomePag) {
-          cand = available.find(c => {
-            const nomeRec = normStr(c.row.cliente || '');
-            return nomeRec && nomeRec === nomePag;
-          });
-        }
-      }
-
-      // ── Tiebreaker 3: distribuidora/concessionária ────────────
-      // Compara PAG.distribuidora (ex: "EDP ES") com REC.concessionaria (ex: "EDP")
-      // Se pelo menos parte do nome bate, prefere esse candidato
-      if (!cand) {
-        const distPag = normStr(rP.distribuidora || '');
-        if (distPag) {
-          cand = available.find(c => {
-            const concRec = normStr(c.row.concessionaria || '');
-            // bate se um contém o outro ("edp" ⊂ "edpes" ou "edpes" ⊃ "edp")
-            return concRec && (distPag.includes(concRec) || concRec.includes(distPag));
-          });
-        }
-      }
-
-      // ── Fallback: primeiro disponível ─────────────────────────
-      if (!cand) cand = available[0];
-    }
-
+    const cand = cands.find((c) => !recUsados.has(c.i)) || cands[0];
     recUsados.add(cand.i);
     matches.push({ pag: rP, rec: cand.row, etapa });
   });
@@ -596,8 +482,6 @@ function buildRow(pag, rec) {
     "Link Boleto": pag.linkBoleto || rec.linkBoleto || "—",
     "Cód. Barras Pag.": pag.codBar || "—",
     "Cód. Barras Rec.": rec.codBar || "—",
-    _rawPag: pag._raw || null,
-    _rawRec: rec._raw || null,
   };
 }
 
@@ -617,8 +501,6 @@ function buildRowNorthen(pag, rec) {
     Distribuidora: pag.distribuidora || "—",
     "Energia Compensada": pag.energiaCompensada || "—",
     "Repasse Distribuidora": pag.repasseDistribuidora || "—",
-    _rawPag: pag._raw || null,
-    _rawRec: rec._raw || null,
   };
 }
 
@@ -637,7 +519,6 @@ function buildRowNorthenSemMatch(pag) {
     Distribuidora: pag.distribuidora || "—",
     "Energia Compensada": pag.energiaCompensada || "—",
     "Repasse Distribuidora": pag.repasseDistribuidora || "—",
-    _rawPag: pag._raw || null,
   };
 }
 
@@ -781,31 +662,12 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
     `Pagadoria: ${dfPag.length.toLocaleString("pt-BR")} | Recebíveis: ${dfRec.length.toLocaleString("pt-BR")}`,
   );
 
-  const getPagPriority = (st) => {
-    st = (st || "").toUpperCase().trim();
-    if (st === "PAGO") return 0;
-    if (st === "A RECEBER" || st === "PENDENTE" || st === "REGULAR") return 1;
-    if (st === "VENCIDO") return 2;
-    return 3;
-  };
-
-  const getRecPriority = (st) => {
-    st = (st || "").toUpperCase().trim();
-    if (st === "PAGO") return 0;
-    if (st === "A RECEBER" || st === "OPEN" || st === "PENDENTE") return 1;
-    if (st === "VENCIDO" || st === "OVERDUE") return 2;
-    return 3;
-  };
-
   const rowsPag = dfPag
     .map(extrairPag)
-    .filter((r) => r._uc_norm && r._mes_norm)
-    .sort((a, b) => getPagPriority(a.statusRaw) - getPagPriority(b.statusRaw));
-
+    .filter((r) => r._uc_norm && r._mes_norm);
   const rowsRec = dfRec
     .map(extrairRec)
-    .filter((r) => r._uc_norm && r._mes_norm)
-    .sort((a, b) => getRecPriority(a.statusRaw) - getRecPriority(b.statusRaw));
+    .filter((r) => r._uc_norm && r._mes_norm);
 
   log(
     `Pag sem mês normalizável: ${dfPag.length - rowsPag.length} | Rec: ${dfRec.length - rowsRec.length}`,
@@ -817,35 +679,10 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
     log(`Mês Rec: "${rowsRec[0].mesRaw}" → "${rowsRec[0]._mes_norm}"`);
 
   const rowsPagNorthen = rowsPag.filter((r) => r._is_northen);
-  const rowsPagOthers  = rowsPag.filter((r) => !r._is_northen);
-  const providerDetectado = detectProvider(dfPag);
+  const rowsPagOthers = rowsPag.filter((r) => !r._is_northen);
   log(
-    `Provider detectado: ${providerDetectado} | Northen: ${rowsPagNorthen.length} | Outros: ${rowsPagOthers.length}`,
+    `Northen: ${rowsPagNorthen.length} linhas | Outros: ${rowsPagOthers.length} linhas`,
   );
-
-  // Filtrar Rec por região da pagadoria carregada
-  let rowsRecFiltrados = rowsRec;
-  let totalRecIgnorado = 0;
-  if (providerDetectado === 'northen') {
-    // PAG Northen: cruzar apenas com Rec de Northen/Energisa
-    const comRegiao = rowsRec.filter(r => r._regiao_rec === 'northen');
-    // Se nenhum Rec tiver região marcada (campo ausente), usa todos para não perder dados
-    if (comRegiao.length > 0) {
-      totalRecIgnorado = rowsRec.length - comRegiao.length;
-      rowsRecFiltrados = comRegiao;
-      log(`[Região] Northen detectada — Rec filtrados: ${comRegiao.length} (ignorados: ${totalRecIgnorado})`, 'ok');
-    } else {
-      log(`[Região] Northen detectada — campo Fornecedora sem região nos Rec, usando todos`, 'warn');
-    }
-  } else if (providerDetectado === 'gv_interno') {
-    const comRegiao = rowsRec.filter(r => r._regiao_rec === 'gv_interno' || r._regiao_rec === null);
-    const soNorthen = rowsRec.filter(r => r._regiao_rec === 'northen');
-    if (soNorthen.length > 0) {
-      totalRecIgnorado = soNorthen.length;
-      rowsRecFiltrados = comRegiao;
-      log(`[Região] GV-Interno detectado — excluídos ${soNorthen.length} Rec Northen`, 'ok');
-    }
-  }
 
   // ── Índice BKO (Clientes GV) para validação de órfãos ──────────────────
   // Construído UMA vez aqui e reutilizado tanto pelo Northen quanto pelo
@@ -873,7 +710,7 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
   bkoByUC, bkoByName);
 
   // Cascata padrão — Rec já consumidos pelo Northen ficam fora
-  const rowsRecDisponiveis = rowsRecFiltrados.filter(
+  const rowsRecDisponiveis = rowsRec.filter(
     (r) => !northen.recConsumidos.has(r),
   );
 
@@ -900,7 +737,7 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
   const e3 = cascadeJoin(
     e2.pagOrfaos,
     e2.recOrfaos,
-    "_cpf_norm",
+    "_uc_norm",
     "_cpf_norm",
     3,
     (msg) => log(msg),
@@ -1065,8 +902,6 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         "Link Boleto Rec.": rec.linkBoleto || "—",
         "Valor Pagadoria": pag.valor || "—",
         "Valor Recebíveis": rec.valor || "—",
-        _rawPag: pag._raw || null,
-        _rawRec: rec._raw || null,
       });
     }
 
@@ -1089,8 +924,6 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         "Vencimento Pag.": pag.venc || "—",
         "Data Pagamento Pag.": pag.pagto || "—",
         "Data Pagamento Rec.": rec.pagto || "—",
-        _rawPag: pag._raw || null,
-        _rawRec: rec._raw || null,
       });
     }
   });
@@ -1220,233 +1053,88 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
   });
   log(`Duplicidades: ${duplicidadesPag.length} registros`, "warn");
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ANÁLISE DE BOLETOS FALTANTES — LÓGICA BIFÁSICA
-  //
-  // FASE 1: Identificar quais CLIENTES existem em AMBOS os lados (PAG e REC).
-  //   → Clientes que só estão num lado NÃO entram na análise de boletos.
-  //   → Isso evita falsos positivos: um cliente novo no REC sem histórico na
-  //     PAG não é "boleto faltante", é simplesmente um cliente diferente.
-  //
-  // FASE 2: Para os clientes em ambos, verificar mês a mês quais boletos
-  //   (UC + Mês) existem num lado e não no outro.
-  // ══════════════════════════════════════════════════════════════════════════
-
-  // — Índice de UCs presentes na PAG (todas as chaves: UC, NC, CPF) —
-  const ucsPagSet = new Set();
-  rowsPag.forEach(r => {
-    if (r._uc_norm)          ucsPagSet.add(r._uc_norm);
-    if (r._num_cliente_norm) ucsPagSet.add(r._num_cliente_norm);
-    if (r._cpf_norm)         ucsPagSet.add(r._cpf_norm);
-  });
-
-  // — Índice de UCs presentes no REC (todas as chaves) —
-  const ucsRecSet = new Set();
-  rowsRec.forEach(r => {
-    if (r._uc_norm)          ucsRecSet.add(r._uc_norm);
-    if (r._num_cliente_norm) ucsRecSet.add(r._num_cliente_norm);
-    if (r._cpf_norm)         ucsRecSet.add(r._cpf_norm);
-  });
-
-  // Função auxiliar: um cliente está "em ambos" se qualquer das suas chaves
-  // aparecer nos dois índices.
-  const clienteEstaEmAmbos = (r, setPag, setRec) => {
-    const chaves = [r._uc_norm, r._num_cliente_norm, r._cpf_norm].filter(Boolean);
-    const noRec  = chaves.some(k => setRec.has(k));
-    const naPag  = chaves.some(k => setPag.has(k));
-    return { noRec, naPag, emAmbos: noRec && naPag };
-  };
-
-  // ── FASE 1 — Clientes que existem APENAS num lado ──────────────────────
-  const clientesSoNaPag = [];  // PAG sem nenhuma UC/NC/CPF no REC
-  const clientesSoNoRec = [];  // REC sem nenhuma UC/NC/CPF na PAG
-
-  // Clientes órfãos da PAG cujo cliente não está no REC
-  pagOrfaosFinais.forEach(r => {
-    const { emAmbos, noRec } = clienteEstaEmAmbos(r, ucsPagSet, ucsRecSet);
-    if (!noRec) {
-      // Cliente só existe na PAG — não é boleto faltante, é cliente diferente
-      const bkoUC   = bkoByUC[r._uc_norm];
-      const nomePag = normName(r.nomeCliente || r.favorecido || r.consorciado || '');
-      const bkoNome = !bkoUC && nomePag ? bkoByName[nomePag] : null;
-      clientesSoNaPag.push({
-        'UC (Pagadoria)':        r.ucRaw,
-        'ID Recebimento':        r.idRecebimento || '—',
-        CPF:                     r.cpfRaw || '—',
-        'Consorciado/Nome':      r.consorciado || r.favorecido || '—',
-        'Status Pagadoria':      r.statusRaw || '—',
-        'Mês Referência':        r._mes_norm || '—',
-        Valor:                   r.valor || '—',
-        'No BKO':                bkoUC ? 'SIM' : bkoNome ? 'Parcial (nome)' : 'NÃO',
-        Motivo:                  'Cliente da Pagadoria sem nenhuma correspondência nos Recebíveis',
-        _rawPag:                 r._raw || null,
-      });
-    }
-  });
-
-  // Clientes órfãos do REC cujo cliente não está na PAG
-  recOrfaosFinais.forEach(r => {
-    const { emAmbos, naPag } = clienteEstaEmAmbos(r, ucsPagSet, ucsRecSet);
-    if (!naPag) {
-      clientesSoNoRec.push({
-        'UC (Recebíveis)':   r.ucRaw,
-        'ID Rcb':            r.idRcb || '—',
-        'Cód. Cliente':      r.codCliente || '—',
-        'Nº Cliente':        r.numCliente || '—',
-        CPF:                 r.cpfRaw || '—',
-        Cliente:             r.cliente || '—',
-        Fornecedora:         r.fornecedora || '—',
-        'Status Recebíveis': r.statusRaw || '—',
-        'Mês Referência':    r._mes_norm || '—',
-        Valor:               r.valor || '—',
-        'Link Boleto':       r.linkBoleto || '—',
-        Motivo:              'Cliente dos Recebíveis sem nenhuma correspondência na Pagadoria',
-        _rawRec:             r._raw || null,
-      });
-    }
-  });
-
-  log(`[Fase 1] Clientes só na PAG: ${clientesSoNaPag.length} | Só no REC: ${clientesSoNoRec.length}`, 'warn');
-
-  // ── FASE 2 — Boletos faltantes SOMENTE para clientes em ambos ──────────
-  // Índice PAG por (UC+Mês) — inclui todas as rows, não só órfãs
-  const idxPagMes = {};
-  rowsPag.forEach(r => {
-    const chaves = [r._uc_norm, r._num_cliente_norm, r._cpf_norm].filter(Boolean);
-    chaves.forEach(k => {
-      const key = `${k}|${r._mes_norm}`;
-      (idxPagMes[key] = idxPagMes[key] || []).push(r);
-    });
-  });
-
-  // Índice REC por (UC+Mês) — idem
-  const idxRecMes = {};
-  rowsRecFiltrados.forEach(r => {
-    const chaves = [r._uc_norm, r._num_cliente_norm, r._cpf_norm].filter(Boolean);
-    chaves.forEach(k => {
-      const key = `${k}|${r._mes_norm}`;
-      (idxRecMes[key] = idxRecMes[key] || []).push(r);
-    });
-  });
-
+  // Falta nos Recebíveis — dividido em três grupos:
+  //   faltaRec:        ausente de REC e do BKO (problema real)
+  //   faltaRecSoBKO:   UC encontrada no BKO, sem boleto neste mês (cliente novo/sem boleto)
+  //   faltaRecUCDiv:   Nome encontrado no BKO mas UC enviada não corresponde (fornecedor enviou UC errada)
   const faltaRec      = [];
   const faltaRecSoBKO = [];
   const faltaRecUCDiv = [];
 
-  // Mapear chaves (CPF|Mês) que já foram reconciliadas com sucesso
-  const matchedCpfMes = new Set();
-  matchesTotais.forEach(m => {
-    const pag = m.pag;
-    if (pag._cpf_norm && pag._mes_norm) {
-      matchedCpfMes.add(`${pag._cpf_norm}|${pag._mes_norm}`);
-    }
-  });
-
-  // PAG órfãos cujo CLIENTE está no REC → boleto faltante no REC neste mês
-  pagOrfaosFinais.forEach(r => {
-    const { noRec } = clienteEstaEmAmbos(r, ucsPagSet, ucsRecSet);
-    if (!noRec) return; // Fase 1: cliente só na PAG — já tratado acima
-
-    const kCpfMes = r._cpf_norm && r._mes_norm ? `${r._cpf_norm}|${r._mes_norm}` : null;
-    if (kCpfMes && matchedCpfMes.has(kCpfMes)) {
-      // É uma duplicidade lógica da Pagadoria (mesmo mês faturado >1 vez, e um deles já bateu)
-      duplicidadesPag.push({
-        "[PAG] UC": r.ucRaw,
-        "[PAG] ID Recebimento": r.idRecebimento || "—",
-        "[PAG] Cliente": r.consorciado || r.favorecido || r.nomeCliente || "—",
-        "[PAG] CPF/CNPJ": r.cpfRaw || "—",
-        "[PAG] Mês Referência": r._mes_norm || "—",
-        "[PAG] Status": r.statusRaw || "—",
-        "[PAG] Valor": r.valor || "—",
-        "[PAG] Vencimento": r.venc || "—",
-        "[PAG] Data Pagamento": r.pagto || "—",
-        "[PAG] Cód. Barras": r.codBar || "—",
-        "[PAG] Link Boleto": r.linkBoleto || "—",
-        "Motivo": "Boletos extras/duplicados gerados na Pagadoria no mesmo mês (já há um boleto reconciliado)."
-      });
-      return;
-    }
-
-    const existe   = (idxRecPorUC[r._uc_norm] || []).length > 0;
-    const recNC    = idxRecNC[r._uc_norm] || [];
-    const nomePag  = normName(r.nomeCliente || r.favorecido || r.consorciado || '');
-    const bkoUC    = bkoByUC[r._uc_norm];
-    const bkoNome  = !bkoUC && nomePag ? bkoByName[nomePag] : null;
+  pagOrfaosFinais.forEach((r) => {
+    const existe  = (idxRecPorUC[r._uc_norm] || []).length > 0;
+    const recNC   = idxRecNC[r._uc_norm] || [];
+    const nomePag = normName(r.nomeCliente || r.favorecido || r.consorciado || '');
+    const bkoUC   = bkoByUC[r._uc_norm];
+    const bkoNome = !bkoUC && nomePag ? bkoByName[nomePag] : null;
 
     const base = {
-      'UC (Pagadoria)':          r.ucRaw,
-      'UC existe nos Recebíveis': existe ? 'SIM' : 'NÃO',
-      'ID Recebimento':          r.idRecebimento || '—',
-      CPF:                       r.cpfRaw || '—',
-      'Consorciado/Nome':        r.consorciado || r.favorecido || '—',
-      'Status Pagadoria':        r.statusRaw || '—',
-      'Mês Referência (Pag.)':   r.mesRef || '—',
-      'Mês Normalizado':         r._mes_norm || '—',
-      Valor:                     r.valor || '—',
-      'Data Pagamento':          r.pagto || '—',
-      'Link Boleto':             r.linkBoleto || recNC[0]?.linkBoleto || '—',
-      _rawPag:                   r._raw || null,
+      "UC (Pagadoria)": r.ucRaw,
+      "UC existe nos Recebíveis": existe ? "SIM" : "NÃO",
+      "ID Recebimento": r.idRecebimento || "—",
+      CPF: r.cpfRaw || "—",
+      "Consorciado/Nome": r.consorciado || r.favorecido || "—",
+      "Status Pagadoria": r.statusRaw || "—",
+      "Mês Referência (Pag.)": r.mesRef || "—",
+      "Mês Normalizado": r._mes_norm || "—",
+      Valor: r.valor || "—",
+      "Data Pagamento": r.pagto || "—",
+      "Link Boleto": r.linkBoleto || recNC[0]?.linkBoleto || "—",
     };
 
     if (bkoUC) {
       faltaRecSoBKO.push({
         ...base,
-        'Código do Cliente (BKO)': getField(bkoUC, ['Codigo', 'codigo', 'Código']) || '—',
-        'Status BKO':              getField(bkoUC, ['Jornada Status', 'Status', 'status', 'Status Financeiro']) || '—',
+        "Código do Cliente (BKO)": getField(bkoUC, ['Codigo', 'codigo', 'Código']) || '—',
+        "Status BKO": getField(bkoUC, ['Jornada Status', 'Status', 'status', 'Status Financeiro']) || '—',
         Motivo: existe
-          ? `Cliente em ambos — UC existe nos Rec. mas mês ${r._mes_norm} não está (BKO: cadastrado)`
-          : 'Cliente em ambos — BKO cadastrado, boleto deste mês não gerado nos Recebíveis',
+          ? `UC existe nos Recebíveis mas mês ${r._mes_norm} não está — cliente cadastrado no BKO`
+          : 'Cliente cadastrado no BKO — boleto ainda não gerado nos Recebíveis',
       });
     } else if (bkoNome) {
       faltaRecUCDiv.push({
         ...base,
-        'Nome (BKO)':                  getField(bkoNome, ['Nome', 'Cliente', 'nome_cliente']) || '—',
+        'Nome (BKO)': getField(bkoNome, ['Nome', 'Cliente', 'nome_cliente']) || '—',
         'UC Correta (BKO — Instalação)': getField(bkoNome, ['Instalacao', 'Instalação', 'instalacao']) || '—',
-        'Nº Cliente (BKO)':            getField(bkoNome, ['Numero Cliente', 'NumeroCliente', 'numero_cliente']) || '—',
-        'Código do Cliente (BKO)':     getField(bkoNome, ['Codigo', 'codigo', 'Código']) || '—',
-        Motivo:                        'Cliente em ambos — nome no BKO mas UC divergente (verificar UC enviada pelo fornecedor)',
+        'Nº Cliente (BKO)': getField(bkoNome, ['Numero Cliente', 'NumeroCliente', 'numero_cliente']) || '—',
+        'Código do Cliente (BKO)': getField(bkoNome, ['Codigo', 'codigo', 'Código']) || '—',
+        Motivo: 'Nome encontrado no BKO mas UC/Nº Cliente divergente — verificar UC enviada pelo fornecedor',
       });
     } else {
       faltaRec.push({
         ...base,
         Motivo: existe
-          ? `Cliente em ambos — UC nos Rec. mas mês ${r._mes_norm} ausente`
-          : 'Cliente em ambos — UC não encontrada nos Recebíveis neste mês',
+          ? `UC existe nos Recebíveis mas mês ${r._mes_norm} não está nos Recebíveis`
+          : 'UC não encontrada nos Recebíveis nem no BKO',
       });
     }
   });
 
   log(`Falta Rec: ${faltaRec.length} (real) | Só no BKO: ${faltaRecSoBKO.length} | UC Divergente: ${faltaRecUCDiv.length}`, 'warn');
 
-  // Falta na Pagadoria — REC órfãos cujo CLIENTE está na PAG
-  const faltaPag = recOrfaosFinais
-    .filter(r => {
-      const { naPag } = clienteEstaEmAmbos(r, ucsPagSet, ucsRecSet);
-      return naPag; // Fase 1: só os que têm cliente na PAG
-    })
-    .map(r => {
-      const existe = (idxPagPorUC[r._uc_norm] || []).length > 0;
-      return {
-        'UC (Recebíveis)':         r.ucRaw,
-        'UC existe na Pagadoria':  existe ? 'SIM' : 'NÃO',
-        'ID Rcb':                  r.idRcb || '—',
-        'Cód. Cliente':            r.codCliente || '—',
-        'Nº Cliente':              r.numCliente || '—',
-        CPF:                       r.cpfRaw || '—',
-        Cliente:                   r.cliente || '—',
-        Fornecedora:               r.fornecedora || '—',
-        'Status Recebíveis':       r.statusRaw || '—',
-        'Status Financeiro':       r.statusFin || '—',
-        'Mês Referência (Rec.)':   r.mesRef || '—',
-        'Mês Normalizado':         r._mes_norm || '—',
-        Valor:                     r.valor || '—',
-        'Link Boleto':             r.linkBoleto || '—',
-        Motivo: existe
-          ? `Cliente em ambos — UC na PAG mas mês ${r._mes_norm} ausente da Pagadoria`
-          : 'Cliente em ambos — UC nos Rec. sem correspondência de mês na Pagadoria',
-        _rawRec:                   r._raw || null,
-      };
-    });
+  // Falta na Pagadoria
+  const faltaPag = recOrfaosFinais.map((r) => {
+    const existe = (idxPagPorUC[r._uc_norm] || []).length > 0;
+    return {
+      "UC (Recebíveis)": r.ucRaw,
+      "UC existe na Pagadoria": existe ? "SIM" : "NÃO",
+      "ID Rcb": r.idRcb || "—",
+      "Cód. Cliente": r.codCliente || "—",
+      "Nº Cliente": r.numCliente || "—",
+      CPF: r.cpfRaw || "—",
+      Cliente: r.cliente || "—",
+      Fornecedora: r.fornecedora || "—",
+      "Status Recebíveis": r.statusRaw || "—",
+      "Status Financeiro": r.statusFin || "—",
+      "Mês Referência (Rec.)": r.mesRef || "—",
+      "Mês Normalizado": r._mes_norm || "—",
+      Valor: r.valor || "—",
+      "Link Boleto": r.linkBoleto || "—",
+      Motivo: existe
+        ? `UC existe na Pagadoria mas mês ${r._mes_norm} não está na Pagadoria`
+        : "UC não encontrada na Pagadoria",
+    };
+  });
 
   return {
     divergentes,
@@ -1457,8 +1145,6 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
     faltaRecSoBKO,
     faltaRecUCDiv,
     faltaPag,
-    clientesSoNaPag,
-    clientesSoNoRec,
     duplicidadesPag,
     northenNaoExiste: northen.naoExiste,
     northenExisteNoBKO: northen.existeNoBKO,
@@ -1470,8 +1156,5 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
     emAmbos: matchesTotais.length + northen.matchPairs.length,
     soPag: pagOrfaosFinais.length,
     soRec: recOrfaosFinais.length,
-    providerDetectado,
-    totalRecFiltrado: rowsRecFiltrados.length,
-    totalRecIgnorado,
   };
 }
