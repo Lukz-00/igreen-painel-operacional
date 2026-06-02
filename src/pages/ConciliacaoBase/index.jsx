@@ -75,7 +75,7 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
 
   const buckets = {
     m1:[], m2:[], m3:[], m5:[], m6:[], m7:[],
-    m8:[], m10:[], m11:[], m13:[], m15:[], m0:[],
+    m8:[], m10:[], m11:[], m13:[], m15:[], m22:[], m0:[],
   }
 
   dfBase.forEach(row => {
@@ -152,7 +152,11 @@ function classificar(dfBase, dfFin, dfRec, dfStatus) {
     if (ehValidado && rateio_S && !hasGVStatus)
       return marcar('m15', '15 — Não encontrado na GV')
 
-    // ── Prioridade 8: Clientes em atraso > Sem boleto ──────────────────────
+    // ── Prioridade 8: Clientes em Atraso (>90 dias, validado, sem boleto) ────
+    if (temDataAtivo && dias > 90 && !devBKO && ehValidado && rateio_S && !boletando)
+      return marcar('m22', '22 — Clientes em Atraso')
+
+    // ── Prioridade 8b: Sem boleto (≤90 dias, validado) ─────────────────────
     if (temDataAtivo && !devBKO && ehValidado && rateio_S && !boletando)
       return marcar('m13', '13 — Clientes em atraso > Sem boleto')
 
@@ -238,6 +242,7 @@ const MARCACOES = [
   { key:'m11', num:11, label:'11 — Cancelado BKO > Ativo Forn.',     cor:'#f59e0b' },
   { key:'m13', num:13, label:'13 — Clientes em atraso > Sem boleto', cor:'#06b6d4' },
   { key:'m15', num:15, label:'15 — Não encontrado na GV',            cor:'#ec4899' },
+  { key:'m22', num:22, label:'22 — Clientes em Atraso',              cor:'#dc2626' },
   { key:'m0',  num:0,  label:'0 — Verificação Manual',               cor:'#334155' },
 ]
 
