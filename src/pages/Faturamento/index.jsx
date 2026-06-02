@@ -623,7 +623,6 @@ export function Faturamento() {
       await new Promise(r => setTimeout(r, 50))
       const res = fatCruzar(dfPag, dfRec, addLog, dfCli || null)
       setResultado(res)
-
       // Salvar histórico
       const summary = {}
       ABAS.forEach(a => { summary[a.key] = (res[a.key] || []).length })
@@ -635,7 +634,7 @@ export function Faturamento() {
         cli: nomeCli || 'N/A'
       }, summary)
 
-      setAbaAtiva(ABAS.find(a => (res[a.key] || []).length > 0)?.key || 'coincidentes')
+      setAbaAtiva(ABAS.find(a => (res[a.key] || []).length > 0)?.key || 'divergentes')
     } catch(e) {
       addLog(`Erro: ${e.message}`, 'err')
     } finally {
