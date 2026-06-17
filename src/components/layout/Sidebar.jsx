@@ -5,9 +5,10 @@ const MENU = [
   { id:'home', label:'Visão Geral', icon:Home, tipo:'item' },
   { tipo:'divider' },
   { id:'injecao', label:'Conciliação de Base', icon:BarChart2, tipo:'grupo', filhos:[
-    { id:'ivolt-gv',    label:'GV' },
-    { id:'ivolt-sunne', label:'SUNNE' },
-    { id:'ivolt-edp',   label:'EDP' },
+    { id:'ivolt-gv',       label:'GV' },
+    { id:'ivolt-sunne',    label:'SUNNE' },
+    { id:'ivolt-edp',      label:'EDP' },
+    { id:'ivolt-sunclick', label:'Sunclick' },
   ]},
   { id:'financeiro', label:'Operações Financeiras', icon:TrendingUp, tipo:'grupo', filhos:[
     { id:'faturamento', label:'Pagadoria' },

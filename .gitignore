@@ -1,3 +1,9 @@
 node_modules
 dist
 .env
+
+# Scripts de diagnóstico e dados locais
+*.py
+*.xlsx
+*.csv
+*.zip

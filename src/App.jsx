@@ -10,9 +10,10 @@ function Router() {
   const pages = {
     home: <Home />,
     faturamento: <Faturamento />,
-    'ivolt-gv':    <ConciliacaoBase fornecedora="GV" />,
-    'ivolt-sunne': <ConciliacaoBase fornecedora="SUNNE" />,
-    'ivolt-edp':   <ConciliacaoBase fornecedora="EDP" />,
+    'ivolt-gv':       <ConciliacaoBase fornecedora="GV" />,
+    'ivolt-sunne':    <ConciliacaoBase fornecedora="SUNNE" />,
+    'ivolt-edp':      <ConciliacaoBase fornecedora="EDP" />,
+    'ivolt-sunclick': <ConciliacaoBase fornecedora="Sunclick" />,
   }
   return pages[paginaAtual] ?? <Home />
 }
