@@ -690,7 +690,7 @@ export function Faturamento() {
         <div className="relative">
           <UploadBox
             label="Base Pagadoria iGreen"
-            sublabel="Solatio · Northen · Energisa · EDP"
+            sublabel="Solatio · Northen · Comerc · Bom Futuro · Sunclick · EDP"
             onFile={f => handleFile(f, 'pag')}
             loaded={!!dfPag}
             fileName={nomePag}

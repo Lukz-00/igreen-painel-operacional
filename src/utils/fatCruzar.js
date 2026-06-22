@@ -314,6 +314,24 @@ function detectProvider(dfPag) {
   // Tipicamente tem coluna de "Distribuidora" e "Repasse Distribuidora"
   if (hasKey('repasse distribuidora', 'repasse_distribuidora')) return 'gv_interno'
 
+  // Fornecedoras menores: detecta pelo valor nos campos Fornecedora/Distribuidora
+  const amostra = dfPag.slice(0, 20)
+  const fornVals = amostra.map(r => {
+    const v = getField(r, [
+      'Fornecedora', 'fornecedora', 'cfornecedora',
+      'Distribuidora', 'distribuidora',
+      'Organização', 'Organizacao', 'organizacao',
+      '_gmap_distribuidora',
+    ])
+    return String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  }).filter(v => v.length > 0 && v.length < 60)
+
+  const inForn = (term) => fornVals.some(v => v.includes(term))
+
+  if (inForn('comerc')) return 'comerc'
+  if (inForn('bom futuro') || inForn('bomfuturo')) return 'bom_futuro'
+  if (inForn('sunclick')) return 'sunclick'
+
   return 'outros'
 }
 
@@ -322,6 +340,9 @@ function normRegiao(v) {
   const s = String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
   if (s.includes('northen') || s.includes('norten') || s.includes('energisa')) return 'northen'
   if (s.includes('gv') || s.includes('consorcio') || s.includes('interno')) return 'gv_interno'
+  if (s === 'comerc' || s.startsWith('comerc ') || s.endsWith(' comerc')) return 'comerc'
+  if (s.includes('bom futuro') || s === 'bomfuturo') return 'bom_futuro'
+  if (s.includes('sunclick')) return 'sunclick'
   return null
 }
 
@@ -844,6 +865,17 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
       totalRecIgnorado = soNorthen.length;
       rowsRecFiltrados = comRegiao;
       log(`[Região] GV-Interno detectado — excluídos ${soNorthen.length} Rec Northen`, 'ok');
+    }
+  } else if (['comerc', 'bom_futuro', 'sunclick'].includes(providerDetectado)) {
+    // Fornecedoras menores: filtrar Rec para apenas registros desta fornecedora (ou sem região definida)
+    const comRegiao = rowsRec.filter(r => r._regiao_rec === providerDetectado || r._regiao_rec === null);
+    const outras    = rowsRec.filter(r => r._regiao_rec !== null && r._regiao_rec !== providerDetectado);
+    if (outras.length > 0) {
+      totalRecIgnorado = outras.length;
+      rowsRecFiltrados = comRegiao;
+      log(`[Região] ${providerDetectado} detectado — Rec filtrados: ${comRegiao.length} (ignorados: ${totalRecIgnorado})`, 'ok');
+    } else {
+      log(`[Região] ${providerDetectado} detectado — sem filtro regional necessário, usando todos`, 'warn');
     }
   }
 

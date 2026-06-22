@@ -7,3 +7,11 @@ dist
 *.xlsx
 *.csv
 *.zip
+/src/BC/
+/src/Analisar/
+/src/EDP/
+/src/Faltantes/
+/src/GV/
+/src/necessario/
+/src/Relatorio/
+/src/Solatio/
