@@ -10,11 +10,10 @@ import { LogPanel } from '../../components/ui/LogPanel'
 import { TabBar } from '../../components/ui/TabBar'
 import { Button } from '../../components/ui/Button'
 import { ColumnMapper } from '../../components/ui/ColumnMapper'
-import { fatCruzar } from '../../utils/fatCruzar'
 import { normalizarRows } from '../../utils/normalizadores'
-import { exportarFaturamento } from '../../utils/exportar'
 import { addDebugLog, addErrorLog, downloadLogs } from '../../utils/logErros'
 import { saveHistoryLog } from '../../utils/history'
+import { categoryUrl, downloadUrl, processFaturamento, uploadSpreadsheet, workbookUrl } from '../../utils/pythonApi'
 
 // ── Apara o !ref de sheets com formatação em colunas fantasma ─────────────
 // Algumas planilhas (ex: BC Memória de Cálculo) registram formatação vazia
@@ -418,19 +417,21 @@ function AnoChip({ ano, ativo, onToggle }) {
 // ── Área de Tabs + Filtro de Ano + Tabela ───────────────────────────────────
 function YearFilteredTabArea({
   resultado, abaAtiva, setAbaAtiva, abasComCount,
+  jobId, contagens,
   anosSelPag, setAnosSelPag,
   anosSelRec, setAnosSelRec,
   modalFaltaPag, setModalFaltaPag,
 }) {
-  // Determina se a aba atual tem filtro de ano
-  const abaComFiltro = abaAtiva === 'faltaPag' || abaAtiva === 'faltaRec'
-  const anosAtivos   = abaAtiva === 'faltaPag' ? anosSelPag : anosSelRec
-  const setAnosAtivos = abaAtiva === 'faltaPag' ? setAnosSelPag : setAnosSelRec
+  // Determina se a aba atual usa os filtros de PAG ou REC
+  const isPagTab = ['faltaPag', 'clientesSoNaPag', 'northenNaoExiste', 'northenExisteNoBKO', 'northenUCDivergente', 'northenExisteEmAmbas', 'northenIncluirBaixa'].includes(abaAtiva)
+  const abaComFiltro = true // Habilita filtro de ano em todas as abas
+  const anosAtivos   = isPagTab ? anosSelPag : anosSelRec
+  const setAnosAtivos = isPagTab ? setAnosSelPag : setAnosSelRec
 
   // Extrai anos disponíveis nas rows da aba atual
   const anosDisponiveis = useMemo(() => {
     if (!abaComFiltro || !resultado) return []
-    const rows = resultado[abaAtiva] || []
+    const rows = Array.isArray(resultado[abaAtiva]) ? resultado[abaAtiva] : []
     const anos = new Set()
     rows.forEach(r => {
       const ano = extrairAnoDoRow(r)
@@ -452,7 +453,7 @@ function YearFilteredTabArea({
   // Rows filtradas por ano (se nenhum selecionado → mostra todos)
   const rowsFiltradas = useMemo(() => {
     if (!resultado) return []
-    const rows = resultado[abaAtiva] || []
+    const rows = Array.isArray(resultado[abaAtiva]) ? resultado[abaAtiva] : []
     if (!abaComFiltro || anosAtivos.size === 0) return rows
     return rows.filter(r => {
       const ano = extrairAnoDoRow(r)
@@ -470,19 +471,41 @@ function YearFilteredTabArea({
         <TabBar abas={abasComCount} abaAtiva={abaAtiva} onTab={(k) => {
           setAbaAtiva(k)
         }} />
-        {abaAtiva === 'faltaPag' && resultado?.faltaPag?.length > 0 && (
-          <button
-            onClick={() => setModalFaltaPag(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors text-xs font-medium flex-shrink-0 ml-3"
-          >
-            <BarChart2 size={13} />
-            Ver Relatório
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+          {abaAtiva === 'faltaPag' && resultado?.faltaPag?.length > 0 && (
+            <button
+              onClick={() => setModalFaltaPag(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors text-xs font-medium"
+            >
+              <BarChart2 size={13} />
+              Ver Relatório
+            </button>
+          )}
+          {(contagens?.[abaAtiva] || 0) > 0 && (
+            <>
+              {anosDisponiveis.length >= 1 && (
+                <button
+                  onClick={() => downloadUrl(categoryUrl(jobId, abaAtiva, [...anosAtivos]))}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors text-xs font-medium"
+                >
+                  <Download size={13} />
+                  Exportar Filtrado
+                </button>
+              )}
+              <button
+                onClick={() => downloadUrl(categoryUrl(jobId, abaAtiva))}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors text-xs font-medium"
+              >
+                <Download size={13} />
+                Exportar Toda a Aba
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Filtro de Ano — só em faltaPag e faltaRec */}
-      {abaComFiltro && anosDisponiveis.length > 1 && (
+      {/* Filtro de Ano */}
+      {abaComFiltro && anosDisponiveis.length >= 1 && (
         <div className="px-5 pt-3 pb-1 flex items-center gap-2 flex-wrap">
           <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
             Filtrar por ano:
@@ -509,7 +532,7 @@ function YearFilteredTabArea({
           )}
           {anosAtivos.size > 0 && (
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginLeft: 'auto' }}>
-              {rowsFiltradas.length} de {(resultado?.[abaAtiva] || []).length} registros
+              {rowsFiltradas.length} exibidos de {contagens?.[abaAtiva] || 0} registros
             </span>
           )}
         </div>
@@ -517,10 +540,15 @@ function YearFilteredTabArea({
 
       {/* Tabela */}
       <div className="px-5 pb-5">
+        {(contagens?.[abaAtiva] || 0) > (Array.isArray(resultado?.[abaAtiva]) ? resultado[abaAtiva].length : 0) && (
+          <p className="text-xs text-tx3 py-2">
+            Prévia das primeiras {(Array.isArray(resultado?.[abaAtiva]) ? resultado[abaAtiva].length : 0).toLocaleString('pt-BR')} linhas; a exportação contém todos os registros.
+          </p>
+        )}
         {abaAtiva === 'divergentes'
           ? <DivergentesTable rows={resultado.divergentes || []} />
           : <DataTable
-              rows={abaComFiltro ? rowsFiltradas : (resultado?.[abaAtiva] || [])}
+              rows={abaComFiltro ? rowsFiltradas : (Array.isArray(resultado?.[abaAtiva]) ? resultado[abaAtiva] : [])}
               label={label}
             />
         }
@@ -540,6 +568,11 @@ export function Faturamento() {
   const [nomePag, setNomePag] = useState('')
   const [nomeRec, setNomeRec] = useState('')
   const [nomeCli, setNomeCli] = useState('')
+  const [uploads, setUploads] = useState({ pag: null, rec: null, cli: null })
+  const [mappings, setMappings] = useState({ pag: null, rec: null, cli: null })
+  const [ucModes, setUcModes] = useState({ pag: 'uc' })
+  const [jobId, setJobId] = useState(null)
+  const [contagens, setContagens] = useState({})
 
   // Mapper
   const [mapperOpen, setMapperOpen]       = useState(false)
@@ -565,22 +598,23 @@ export function Faturamento() {
   // Ao soltar arquivo na caixa → lé e abre o mapper
   const handleFile = async (file, key) => {
     try {
-      console.log('[DEBUG] handleFile iniciado para:', file.name)
-      const rows = await lerXlsx(file)
-      console.log('[DEBUG] handleFile recebeu rows:', Array.isArray(rows), 'length:', rows?.length)
+      addLog(`Enviando ${file.name} para o motor Polars…`)
+      const uploaded = await uploadSpreadsheet(file)
+      const rows = uploaded.rows || []
       if (!rows || !rows.length) {
         console.log('[DEBUG] Rows vazio ou nulo, abortando')
         addLog(`Planilha vazia: ${file.name}`, 'err')
         return
       }
-      console.log('[DEBUG] Rows válido, abrindo mapper com', rows.length, 'linhas')
+      setUploads(prev => ({ ...prev, [key]: uploaded }))
       if (key === 'pag')      { setRawPag(rows); setNomePag(file.name) }
       else if (key === 'rec') { setRawRec(rows); setNomeRec(file.name) }
       else                   { setRawCli(rows); setNomeCli(file.name) }
       setMapperKey(key)
       setMapperRaw(rows)
-      setMapperHeaders(Object.keys(rows[0]))
+      setMapperHeaders(uploaded.headers || Object.keys(rows[0]))
       setMapperOpen(true)
+      addLog(`${uploaded.row_count.toLocaleString('pt-BR')} linhas detectadas sem carregá-las no navegador`, 'ok')
     } catch(e) {
       console.error('[DEBUG] Exceção em handleFile:', e)
       addLog(`Erro ao ler ${file.name}: ${e.message}`, 'err')
@@ -598,19 +632,23 @@ export function Faturamento() {
   }
 
   // Ao confirmar o mapper
-  const handleMapperConfirm = (remapped, mapping) => {
+  const handleMapperConfirm = (remapped, mapping, options = {}) => {
     setMapperOpen(false)
+    const total = uploads[mapperKey]?.row_count ?? remapped.length
+    const source = { uploadId: uploads[mapperKey]?.upload_id, count: total }
+    setMappings(prev => ({ ...prev, [mapperKey]: mapping }))
+    setUcModes(prev => ({ ...prev, [mapperKey]: options.ucMode || 'uc' }))
     if (mapperKey === 'pag') {
-      setDfPag(remapped)
-      addLog(`Pagadoria: ${remapped.length.toLocaleString('pt-BR')} linhas`, 'ok')
+      setDfPag(source)
+      addLog(`Pagadoria: ${total.toLocaleString('pt-BR')} linhas`, 'ok')
       addLog(`  UC → ${mapping.instalacao || '—'} | Status → ${mapping.status || '—'} | Mês → ${mapping.mes || '—'}`)
     } else if (mapperKey === 'rec') {
-      setDfRec(remapped)
-      addLog(`Recebíveis: ${remapped.length.toLocaleString('pt-BR')} linhas`, 'ok')
+      setDfRec(source)
+      addLog(`Recebíveis: ${total.toLocaleString('pt-BR')} linhas`, 'ok')
       addLog(`  UC → ${mapping.instalacao || '—'} | Status → ${mapping.status || '—'} | Mês → ${mapping.mes || '—'}`)
     } else {
-      setDfCli(remapped)
-      addLog(`Clientes GV: ${remapped.length.toLocaleString('pt-BR')} clientes carregados`, 'ok')
+      setDfCli(source)
+      addLog(`Clientes GV: ${total.toLocaleString('pt-BR')} clientes carregados`, 'ok')
     }
   }
 
@@ -620,12 +658,25 @@ export function Faturamento() {
     setLogs([])
     setResultado(null)
     try {
-      await new Promise(r => setTimeout(r, 50))
-      const res = fatCruzar(dfPag, dfRec, addLog, dfCli || null)
+      const response = await processFaturamento({
+        pag: { upload_id: uploads.pag.upload_id, mapping: mappings.pag || {}, uc_mode: ucModes.pag || 'uc' },
+        rec: { upload_id: uploads.rec.upload_id, mapping: mappings.rec || {}, uc_mode: 'uc' },
+        cli: dfCli ? { upload_id: uploads.cli.upload_id, mapping: mappings.cli || {}, uc_mode: 'uc' } : null,
+      })
+      const res = {
+        ...response.rows,
+        emAmbos: response.counts?.emAmbos || 0,
+        totalPag: response.counts?.totalPag || 0,
+        totalRec: response.counts?.totalRec || 0,
+        counts: response.counts || {},
+      }
+      response.logs.forEach(item => addLog(item.msg, item.tipo))
       setResultado(res)
+      setContagens(response.counts || {})
+      setJobId(response.job_id)
       // Salvar histórico
       const summary = {}
-      ABAS.forEach(a => { summary[a.key] = (res[a.key] || []).length })
+      ABAS.forEach(a => { summary[a.key] = response.counts?.[a.key] || 0 })
       summary.emAmbos = res.emAmbos || 0
       
       saveHistoryLog('Faturamento', {
@@ -634,7 +685,7 @@ export function Faturamento() {
         cli: nomeCli || 'N/A'
       }, summary)
 
-      setAbaAtiva(ABAS.find(a => (res[a.key] || []).length > 0)?.key || 'divergentes')
+      setAbaAtiva(ABAS.find(a => (response.counts?.[a.key] || 0) > 0)?.key || 'divergentes')
     } catch(e) {
       addLog(`Erro: ${e.message}`, 'err')
     } finally {
@@ -643,7 +694,7 @@ export function Faturamento() {
   }
 
   const abasComCount = ABAS.map(a => ({
-    ...a, count: resultado ? (resultado[a.key] || []).length : undefined
+    ...a, count: resultado ? (contagens[a.key] || 0) : undefined
   }))
 
   return (
@@ -767,45 +818,45 @@ export function Faturamento() {
         <div className="space-y-5">
           <div className="grid grid-cols-4 gap-3">
             <MetricCard label="UCs em Ambas"          value={resultado.emAmbos}                                    sub="matches"                color="#22c55e" />
-            <MetricCard label="Taxa Divergência"      value={resultado.emAmbos > 0 ? ((resultado.divergentes.length / resultado.emAmbos) * 100).toFixed(1) + '%' : '0%'} sub="em relação aos matches" color="#f59e0b" />
-            <MetricCard label="Divergência Cód."      value={(resultado.divergenciasCod||[]).length}               sub="cód. barras"             color="#f97316" onClick={() => setAbaAtiva('divergenciasCod')} />
-            <MetricCard label="Sem Pagto/Valor"       value={(resultado.semPagtoValor||[]).length}                 sub="pendências"              color="#dc2626" onClick={() => setAbaAtiva('semPagtoValor')} />
-            <MetricCard label="Status Divergentes"    value={resultado.divergentes.length}                         sub="conflito"                color="#ef4444" onClick={() => setAbaAtiva('divergentes')} />
-            <MetricCard label="Falta nos Recebíveis"  value={resultado.faltaRec.length}                            sub="cliente em ambos, mês faltando" color="#f59e0b" onClick={() => setAbaAtiva('faltaRec')} />
-            <MetricCard label="Só no BKO (sem boleto)" value={(resultado.faltaRecSoBKO||[]).length}               sub="cliente em ambos, BKO cadastrado" color="#fb923c" onClick={() => setAbaAtiva('faltaRecSoBKO')} />
-            <MetricCard label="UC Divergente"         value={(resultado.faltaRecUCDiv||[]).length}                 sub="cliente em ambos, UC errada" color="#a78bfa" onClick={() => setAbaAtiva('faltaRecUCDiv')} />
-            <MetricCard label="Falta na Pagadoria"    value={resultado.faltaPag.length}                            sub="cliente em ambos, mês faltando" color="#a855f7" onClick={() => setAbaAtiva('faltaPag')} />
-            <MetricCard label="Coincidentes"          value={resultado.coincidentes.length}                        sub="status ok"               color="#22c55e" onClick={() => setAbaAtiva('coincidentes')} />
-            <MetricCard label="Duplicidades"          value={(resultado.duplicidadesPag||[]).length}               sub="linhas idênticas"        color="#94a3b8" onClick={() => setAbaAtiva('duplicidadesPag')} />
+            <MetricCard label="Taxa Divergência"      value={resultado.emAmbos > 0 ? (((contagens.divergentes || 0) / resultado.emAmbos) * 100).toFixed(1) + '%' : '0%'} sub="em relação aos matches" color="#f59e0b" />
+            <MetricCard label="Divergência Cód."      value={contagens.divergenciasCod || 0}                       sub="cód. barras"             color="#f97316" onClick={() => setAbaAtiva('divergenciasCod')} />
+            <MetricCard label="Sem Pagto/Valor"       value={contagens.semPagtoValor || 0}                         sub="pendências"              color="#dc2626" onClick={() => setAbaAtiva('semPagtoValor')} />
+            <MetricCard label="Status Divergentes"    value={contagens.divergentes || 0}                           sub="conflito"                color="#ef4444" onClick={() => setAbaAtiva('divergentes')} />
+            <MetricCard label="Falta nos Recebíveis"  value={contagens.faltaRec || 0}                              sub="cliente em ambos, mês faltando" color="#f59e0b" onClick={() => setAbaAtiva('faltaRec')} />
+            <MetricCard label="Só no BKO (sem boleto)" value={contagens.faltaRecSoBKO || 0}                       sub="cliente em ambos, BKO cadastrado" color="#fb923c" onClick={() => setAbaAtiva('faltaRecSoBKO')} />
+            <MetricCard label="UC Divergente"         value={contagens.faltaRecUCDiv || 0}                         sub="cliente em ambos, UC errada" color="#a78bfa" onClick={() => setAbaAtiva('faltaRecUCDiv')} />
+            <MetricCard label="Falta na Pagadoria"    value={contagens.faltaPag || 0}                              sub="cliente em ambos, mês faltando" color="#a855f7" onClick={() => setAbaAtiva('faltaPag')} />
+            <MetricCard label="Coincidentes"          value={contagens.coincidentes || 0}                          sub="status ok"               color="#22c55e" onClick={() => setAbaAtiva('coincidentes')} />
+            <MetricCard label="Duplicidades"          value={contagens.duplicidadesPag || 0}                       sub="linhas idênticas"        color="#94a3b8" onClick={() => setAbaAtiva('duplicidadesPag')} />
           </div>
 
           {/* Fase 1 — Clientes sem correspondência no lado oposto */}
-          {((resultado.clientesSoNaPag||[]).length > 0 || (resultado.clientesSoNoRec||[]).length > 0) && (
+          {((contagens.clientesSoNaPag || 0) > 0 || (contagens.clientesSoNoRec || 0) > 0) && (
             <div className="p-4 rounded-xl border border-bd bg-bg2">
               <p className="text-xs font-semibold text-tx3 uppercase tracking-widest mb-3">Fase 1 — Clientes sem correspondência no lado oposto</p>
               <p className="text-xs text-tx3 mb-3">Estes clientes <strong className="text-tx">não foram considerados</strong> na análise de boletos faltantes pois não existem em ambos os lados.</p>
               <div className="grid grid-cols-2 gap-3">
-                <MetricCard label="Clientes só na PAG" value={(resultado.clientesSoNaPag||[]).length} sub="sem nenhuma UC/NC/CPF no REC" color="#64748b" onClick={() => setAbaAtiva('clientesSoNaPag')} />
-                <MetricCard label="Clientes só no REC" value={(resultado.clientesSoNoRec||[]).length} sub="sem nenhuma UC/NC/CPF na PAG" color="#475569" onClick={() => setAbaAtiva('clientesSoNoRec')} />
+                <MetricCard label="Clientes só na PAG" value={contagens.clientesSoNaPag || 0} sub="sem nenhuma UC/NC/CPF no REC" color="#64748b" onClick={() => setAbaAtiva('clientesSoNaPag')} />
+                <MetricCard label="Clientes só no REC" value={contagens.clientesSoNoRec || 0} sub="sem nenhuma UC/NC/CPF na PAG" color="#475569" onClick={() => setAbaAtiva('clientesSoNoRec')} />
               </div>
             </div>
           )}
 
-          {((resultado.northenNaoExiste||[]).length > 0 || (resultado.northenExisteNoBKO||[]).length > 0 || (resultado.northenUCDivergente||[]).length > 0 || (resultado.northenExisteEmAmbas||[]).length > 0 || (resultado.northenIncluirBaixa||[]).length > 0) && (
+          {['northenNaoExiste','northenExisteNoBKO','northenUCDivergente','northenExisteEmAmbas','northenIncluirBaixa'].some(k => (contagens[k] || 0) > 0) && (
             <div>
               <p className="text-xs font-semibold text-tx3 uppercase tracking-widest mb-2">Northen</p>
               <div className="grid grid-cols-5 gap-3">
-                <MetricCard label="Não existe em Rec. + BKO" value={(resultado.northenNaoExiste||[]).length}     sub="sem match em nenhum"      color="#ef4444" onClick={() => setAbaAtiva('northenNaoExiste')} />
-                <MetricCard label="Só no BKO (sem boleto)"   value={(resultado.northenExisteNoBKO||[]).length}  sub="cadastrado, sem boleto"   color="#f59e0b" onClick={() => setAbaAtiva('northenExisteNoBKO')} />
-                <MetricCard label="UC Divergente"             value={(resultado.northenUCDivergente||[]).length} sub="UC errada pelo fornecedor" color="#a78bfa" onClick={() => setAbaAtiva('northenUCDivergente')} />
-                <MetricCard label="Existe em Ambas"           value={(resultado.northenExisteEmAmbas||[]).length} sub="com match"               color="#22c55e" onClick={() => setAbaAtiva('northenExisteEmAmbas')} />
-                <MetricCard label="Incluir / Dar Baixa"       value={(resultado.northenIncluirBaixa||[]).length}  sub="pago s/ baixa"            color="#f97316" onClick={() => setAbaAtiva('northenIncluirBaixa')} />
+                <MetricCard label="Não existe em Rec. + BKO" value={contagens.northenNaoExiste || 0}     sub="sem match em nenhum"      color="#ef4444" onClick={() => setAbaAtiva('northenNaoExiste')} />
+                <MetricCard label="Só no BKO (sem boleto)"   value={contagens.northenExisteNoBKO || 0}  sub="cadastrado, sem boleto"   color="#f59e0b" onClick={() => setAbaAtiva('northenExisteNoBKO')} />
+                <MetricCard label="UC Divergente"             value={contagens.northenUCDivergente || 0} sub="UC errada pelo fornecedor" color="#a78bfa" onClick={() => setAbaAtiva('northenUCDivergente')} />
+                <MetricCard label="Existe em Ambas"           value={contagens.northenExisteEmAmbas || 0} sub="com match"               color="#22c55e" onClick={() => setAbaAtiva('northenExisteEmAmbas')} />
+                <MetricCard label="Incluir / Dar Baixa"       value={contagens.northenIncluirBaixa || 0}  sub="pago s/ baixa"            color="#f97316" onClick={() => setAbaAtiva('northenIncluirBaixa')} />
               </div>
             </div>
           )}
 
           <div className="flex justify-end">
-            <Button variant="default" onClick={() => exportarFaturamento(resultado)}>
+            <Button variant="default" onClick={() => downloadUrl(workbookUrl(jobId))}>
               <Download size={14} /> Exportar tudo (todas as abas)
             </Button>
           </div>
@@ -815,6 +866,8 @@ export function Faturamento() {
             abaAtiva={abaAtiva}
             setAbaAtiva={setAbaAtiva}
             abasComCount={abasComCount}
+            jobId={jobId}
+            contagens={contagens}
             anosSelPag={anosSelPag}
             setAnosSelPag={setAnosSelPag}
             anosSelRec={anosSelRec}

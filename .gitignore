@@ -3,15 +3,20 @@ dist
 .env
 
 # Scripts de diagnóstico e dados locais
+.venv/
+.pnpm-store/
+__pycache__/
+*.pyc
 *.py
+!server/
+!server/**/*.py
+!tests/
+!tests/**/*.py
 *.xlsx
 *.csv
 *.zip
-/src/BC/
-/src/Analisar/
-/src/EDP/
 /src/Faltantes/
+/src/BC/
+/src/EDP/
 /src/GV/
 /src/necessario/
-/src/Relatorio/
-/src/Solatio/

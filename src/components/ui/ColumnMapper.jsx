@@ -158,7 +158,7 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
       }
       return out
     })
-    onConfirm(remapped, mapping)
+    onConfirm(remapped, mapping, { ucMode })
   }
 
   return (

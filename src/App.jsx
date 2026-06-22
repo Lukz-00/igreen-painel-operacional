@@ -4,6 +4,7 @@ import { Topbar } from './components/layout/Topbar'
 import { Home } from './pages/Home'
 import { Faturamento } from './pages/Faturamento'
 import { ConciliacaoBase } from './pages/ConciliacaoBase'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
 function Router() {
   const { paginaAtual } = useApp()
@@ -25,7 +26,9 @@ function Layout() {
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
         <main className="flex-1 overflow-y-auto">
-          <Router />
+          <ErrorBoundary>
+            <Router />
+          </ErrorBoundary>
         </main>
       </div>
     </div>
