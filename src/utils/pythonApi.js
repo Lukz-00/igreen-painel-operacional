@@ -36,6 +36,18 @@ export function categoryUrl(jobId, category, years = []) {
   return `${API_BASE}/api/faturamento/jobs/${jobId}/category/${encodeURIComponent(category)}${query}`
 }
 
+export async function processConciliacao(payload) {
+  return (await api('/api/conciliacao/process', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })).json()
+}
+
+export function workbookConciliacaoUrl(jobId) {
+  return `${API_BASE}/api/conciliacao/jobs/${jobId}/workbook`
+}
+
 export function downloadUrl(url) {
   const anchor = document.createElement('a')
   anchor.href = url

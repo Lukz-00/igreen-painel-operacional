@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from .excel_io import preview_table, read_table, write_workbook
 from .reconciliation import apply_mapping, reconcile_faturamento
+from .conciliacao import reconcile_conciliacao
 
 
 ROOT = Path(tempfile.gettempdir()) / "igreen-polars"
@@ -45,6 +46,12 @@ class ProcessRequest(BaseModel):
     pag: Source
     rec: Source
     cli: Source | None = None
+
+class ConciliacaoProcessRequest(BaseModel):
+    base: Source
+    fin: Source
+    rec: Source
+    status: Source
 
 
 SHEET_KEYS = {
@@ -165,6 +172,93 @@ def _job_path(job_id: str) -> Path:
     return path
 
 
+@app.get("/api/faturamento/jobs")
+def list_jobs() -> dict:
+    jobs = []
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    for p in JOBS.iterdir():
+        if p.is_dir():
+            mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)
+            if mtime > cutoff:
+                jobs.append({"id": p.name, "created": mtime.isoformat()})
+    return {"jobs": sorted(jobs, key=lambda x: x["created"], reverse=True)}
+
+
+@app.post("/api/conciliacao/process")
+def process_conciliacao(request: ConciliacaoProcessRequest) -> dict:
+    job_id = uuid.uuid4().hex
+    job_dir = JOBS / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        df_base = read_table(_upload_path(request.base.upload_id))
+        df_fin = read_table(_upload_path(request.fin.upload_id))
+        df_rec = read_table(_upload_path(request.rec.upload_id))
+        df_status = read_table(_upload_path(request.status.upload_id))
+
+        df_base = apply_mapping(df_base, request.base.mapping)
+        df_fin = apply_mapping(df_fin, request.fin.mapping)
+        df_rec = apply_mapping(df_rec, request.rec.mapping)
+        df_status = apply_mapping(df_status, request.status.mapping)
+
+        res_dict, total_base = reconcile_conciliacao(df_base, df_fin, df_rec, df_status)
+
+        counts = {k: len(v) for k, v in res_dict.items()}
+        counts["total"] = total_base
+
+        # Mapeamento dos labels para as abas do Excel
+        marcas = {
+            "m1": "1 - Clientes OK",
+            "m2": "2 - Boletando Sem data",
+            "m3": "3 - Cancelado GV",
+            "m5": "5 - Equipe de Devolutivas",
+            "m6": "6 - Cancelado em ambas",
+            "m7": "7 - Clientes em atraso",
+            "m8": "8 - Represado",
+            "m10": "10 - Aguardando retorno",
+            "m11": "11 - Cancelado BKO",
+            "m13": "13 - Atraso Sem boleto",
+            "m15": "15 - Nao encontrado GV",
+            "m22": "22 - Clientes Atraso",
+            "m0": "0 - Verificacao Manual"
+        }
+
+        # Criar a aba RESUMO (o write_workbook espera list[tuple[str, Any]])
+        resumo_rows = [
+            ("Total na Base", total_base)
+        ]
+        for k, v in marcas.items():
+            resumo_rows.append((v, counts[k]))
+
+        export_dict = {}
+        
+        # O backend Faturamento usa a key exata no dicionario pro nome da aba
+        for k, v in marcas.items():
+            if len(res_dict[k]) > 0:
+                export_dict[v] = pl.DataFrame(res_dict[k])
+
+        write_workbook(job_dir / "conciliacao.xlsx", resumo_rows, export_dict)
+
+        return {
+            "job_id": job_id,
+            "counts": counts,
+            "download_url": f"/api/conciliacao/jobs/{job_id}/workbook"
+        }
+    except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(500, f"Falha na conciliação: {type(exc).__name__}: {exc}") from exc
+
+
+@app.get("/api/conciliacao/jobs/{job_id}/workbook")
+def workbook_conciliacao(job_id: str) -> FileResponse:
+    path = _job_path(job_id) / "conciliacao.xlsx"
+    if not path.exists():
+        raise HTTPException(404, "Resultado não encontrado.")
+    return FileResponse(path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=f"conciliacao_base_{datetime.now():%d-%m-%Y}.xlsx")
+
+
 def cleanup_expired(max_age_hours: int = 24) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
     for folder in (UPLOADS, JOBS):
@@ -177,4 +271,4 @@ def cleanup_expired(max_age_hours: int = 24) -> None:
 if __name__ == "__main__":
     import uvicorn
     cleanup_expired()
-    uvicorn.run("server.app:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("server.app:app", host="0.0.0.0", port=8000, reload=False)

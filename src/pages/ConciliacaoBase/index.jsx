@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import * as XLSX from 'xlsx'
-import { Play, Download, RotateCcw, Pencil } from 'lucide-react'
+import { Play, Download, RotateCcw, Pencil, Loader2 } from 'lucide-react'
 import { UploadBox } from '../../components/ui/UploadBox'
 import { MetricCard } from '../../components/ui/MetricCard'
 import { DataTable } from '../../components/ui/DataTable'
@@ -8,189 +7,9 @@ import { TabBar } from '../../components/ui/TabBar'
 import { Button } from '../../components/ui/Button'
 import { ColumnMapper } from '../../components/ui/ColumnMapper'
 import { normalizarRows } from '../../utils/normalizadores'
+import { uploadSpreadsheet, processConciliacao, workbookConciliacaoUrl, downloadUrl } from '../../utils/pythonApi'
 
-// ── helpers ────────────────────────────────────────────────────────────────
-
-function lerXlsx(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = e => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true })
-        resolve(normalizarRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })))
-      } catch (err) { reject(err) }
-    }
-    r.onerror = reject
-    r.readAsArrayBuffer(file)
-  })
-}
-
-function parseDias(v) {
-  if (!v || String(v).trim() === '' || String(v).trim() === 'N/D' || String(v).trim() === '—') return null
-  if (v instanceof Date && !isNaN(v)) return Math.floor((Date.now() - v.getTime()) / 86400000)
-  const s = String(v).trim()
-  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
-  if (m) { const d = new Date(+m[3], +m[2] - 1, +m[1]); if (!isNaN(d.getTime())) return Math.floor((Date.now() - d.getTime()) / 86400000) }
-  m = s.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})/)
-  if (m) { const d = new Date(+m[1], +m[2] - 1, +m[3]); if (!isNaN(d.getTime())) return Math.floor((Date.now() - d.getTime()) / 86400000) }
-  const n = parseFloat(s)
-  if (!isNaN(n) && n > 30000) { const d = new Date((n - 25569) * 86400 * 1000); return Math.floor((Date.now() - d.getTime()) / 86400000) }
-  return null
-}
-
-function normCod(v) { return String(v || '').replace(/\s+/g, '').toUpperCase() }
-
-function temTermo(texto, termos) {
-  const t = String(texto || '').toUpperCase()
-  return termos.some(term => t.includes(term.toUpperCase()))
-}
-
-// ── termos de classificação ─────────────────────────────────────────────────
-
-const CANCEL_GV  = ['CANCELADO', 'REMOVIDO', 'REPROVADO', 'INSATISF', 'MUDANÇA DE ENDEREÇO', 'MUDANCA DE ENDERECO']
-const CANCEL_BKO = ['CANCELADO', 'DESIST', 'EXCLUIDO', 'EXCLUÍDO']
-const REJEICAO   = ['CONTRATO NÃO ENCONTRADO', 'CONTRATO NAO ENCONTRADO', 'FALTA LINK', 'FATURA ILEGÍVEL', 'FATURA ILEGIVEL', 'SEM HISTÓRICO DE CONSUMO', 'SEM HISTORICO DE CONSUMO', 'CONTRATO SEM ASSINATURA']
-
-// ── lógica de classificação ─────────────────────────────────────────────────
-
-function classificar(dfBase, dfFin, dfRec, dfStatus) {
-  const setFin = new Set(dfFin.map(r => normCod(r['_gmap_codigo'] || '')).filter(Boolean))
-  const setRec = new Set(dfRec.map(r => normCod(r['_gmap_codigo'] || '')).filter(Boolean))
-
-  const mapGV = {}
-  dfStatus.forEach(r => {
-    const cod = normCod(r['_gmap_codigo'] || '')
-    if (!cod) return
-    mapGV[cod] = {
-      obs:    String(r['_gmap_obs']          || '').trim(),
-      rateio: String(r['_gmap_status_rateio']|| '').trim(),
-    }
-  })
-
-  const mapRec = {}
-  dfRec.forEach(r => {
-    const cod = normCod(r['_gmap_codigo'] || '')
-    if (cod && !mapRec[cod]) mapRec[cod] = r
-  })
-
-  const buckets = {
-    m1:[], m2:[], m3:[], m5:[], m6:[], m7:[],
-    m8:[], m10:[], m11:[], m13:[], m15:[], m22:[], m0:[],
-  }
-
-  dfBase.forEach(row => {
-    const cod             = normCod(row['_gmap_codigo']            || '')
-    const dataAtivo       = String(row['_gmap_data_ativo']         || '').trim()
-    const dataCanc        = String(row['_gmap_data_cancelamento']  || '').trim()
-    const devBKO          = String(row['_gmap_devolutiva']         || '').trim()
-    const validadoSucesso = String(row['_gmap_validado_sucesso']   || '').trim().toUpperCase()
-    const jornadaStatus   = String(row['_gmap_jornada_status']     || '').trim().toUpperCase()
-    const jornadaEtapa    = String(row['_gmap_jornada_etapa']      || '').trim().toUpperCase()
-    const rateioBKOraw    = String(row['_gmap_rateio']             || '').trim().toUpperCase()
-
-    const finalizado  = setFin.has(cod)
-    const boletando   = setRec.has(cod)
-    const hasGVStatus = !!mapGV[cod]
-    const gv          = mapGV[cod] || { obs: '', rateio: '' }
-    const obsGV       = gv.obs.toUpperCase()
-    const rateioGV    = gv.rateio.toUpperCase()
-
-    const dias         = parseDias(dataAtivo)
-    const meses        = dias !== null ? +(dias / 30).toFixed(1) : null
-    const temDataAtivo = dias !== null && dias >= 0
-    const canceladoGV  = temTermo(obsGV, CANCEL_GV) || temTermo(rateioGV, CANCEL_GV)
-    const canceladoBKO = !!dataCanc || temTermo(devBKO, CANCEL_BKO)
-
-    const rateio_S   = rateioBKOraw === 'S' || rateioBKOraw === 'SIM'
-    const ehValidado = validadoSucesso === 'SIM' || validadoSucesso === 'S'
-    const ehVazioGV  = !rateioGV
-    const isAtivoGV  = ehVazioGV || rateioGV === 'N/A' || rateioGV === 'ATIVO' ||
-                       rateioGV.includes('CLIENTE ATIVO') ||
-                       rateioGV.includes('PREVISÃO DE INJEÇÃO') ||
-                       rateioGV.includes('PREVISAO DE INJECAO')
-
-    const rec = {
-      ...row,
-      'Finalizado GV':    finalizado ? 'SIM' : 'NÃO',
-      'Boletando':        boletando  ? 'SIM' : 'NÃO',
-      'Observação GV':    gv.obs,
-      'Status Rateio GV': gv.rateio,
-      'Dias em Atraso':   dias  !== null ? dias  : '—',
-      'Meses em Atraso':  meses !== null ? meses : '—',
-    }
-
-    const marcar = (key, label) => { rec['Marcação'] = label; buckets[key].push(rec) }
-    const cancelarBKO = () => isAtivoGV
-      ? marcar('m11', '11 — Cancelado BKO > Ativo Fornecedora')
-      : marcar('m6',  '6 — Cancelado em ambas partes')
-
-    // ── Prioridade 1: Rejeição GV ───────────────────────────────────────────
-    if (temTermo(obsGV, REJEICAO))
-      return marcar('m5', '5 — Equipe de Devolutivas')
-
-    // ── Prioridade 2: Cancelado BKO > Ativo Fornecedora (via Jornada) ───────
-    if (!temDataAtivo && devBKO && (jornadaStatus.includes('ATIVO') || jornadaStatus.includes('VALIDADO')))
-      return marcar('m11', '11 — Cancelado BKO > Ativo Fornecedora')
-
-    // ── Prioridade 3: Cancelado GV > Cancelar BKO (via Jornada) ────────────
-    if (temDataAtivo && jornadaStatus.includes('SUSPENSO') && jornadaEtapa.includes('INADIMPLENTE'))
-      return marcar('m3', '3 — Cancelado GV > Cancelar BKO')
-
-    // ── Prioridade 4: Verificação Manual (data ativo + devolutiva) ──────────
-    if (temDataAtivo && devBKO)
-      return marcar('m0', '0 — Verificação Manual')
-
-    // ── Prioridade 5: Represado (validado + não enviado ao rateio) ──────────
-    if (!devBKO && ehValidado && !rateio_S)
-      return marcar('m8', '8 — Represado')
-
-    // ── Prioridade 6: Clientes OK (finalizado + validado + rateio + GV retorno presente)
-    if (finalizado && temDataAtivo && !devBKO && ehValidado && rateio_S && !ehVazioGV)
-      return marcar('m1', '1 — Clientes OK')
-
-    // ── Prioridade 7: Não encontrado na GV (validado + rateio S + sem retorno GV)
-    if (ehValidado && rateio_S && !hasGVStatus)
-      return marcar('m15', '15 — Não encontrado na GV')
-
-    // ── Prioridade 8: Clientes em Atraso (>90 dias, validado, sem boleto) ────
-    if (temDataAtivo && dias > 90 && !devBKO && ehValidado && rateio_S && !boletando)
-      return marcar('m22', '22 — Clientes em Atraso')
-
-    // ── Prioridade 8b: Sem boleto (≤90 dias, validado) ─────────────────────
-    if (temDataAtivo && !devBKO && ehValidado && rateio_S && !boletando)
-      return marcar('m13', '13 — Clientes em atraso > Sem boleto')
-
-    // ── Prioridade 9: Aguardando retorno Fornecedora ────────────────────────
-    if (finalizado && !canceladoGV && !devBKO && ehValidado && rateio_S && ehVazioGV)
-      return marcar('m10', '10 — Aguardando retorno Fornecedora')
-
-    // ── Prioridade 9: Boletando sem data ativo ──────────────────────────────
-    if (boletando && !temDataAtivo && !devBKO && !canceladoGV) {
-      const recRow = mapRec[cod]
-      rec['IDRCB Recebíveis'] = recRow
-        ? String(recRow['_gmap_idrcb'] || recRow['Idrcb'] || recRow['idrcb'] || '—')
-        : '—'
-      return marcar('m2', '2 — Boletando > Sem data ativo')
-    }
-
-    // ── Grupo C: está na base de Finalizados ────────────────────────────────
-    if (finalizado) {
-      if (canceladoGV) {
-        if (!temDataAtivo) return marcar('m6', '6 — Cancelado em ambas partes')
-        if (!canceladoBKO && !dataCanc && !isAtivoGV)
-          return marcar('m3', '3 — Cancelado GV > Cancelar BKO')
-      } else {
-        if (canceladoBKO && temTermo(devBKO, CANCEL_BKO)) return cancelarBKO()
-        if (temDataAtivo && !devBKO && !boletando) return marcar('m7', '7 — Clientes em atraso')
-        return cancelarBKO()
-      }
-    }
-
-    marcar('m0', '0 — Verificação Manual')
-  })
-
-  return { ...buckets, total: dfBase.length }
-}
+// ── Helpers foram movidos para o backend (Polars) ─────────────────────────
 
 // ── export ─────────────────────────────────────────────────────────────────
 
@@ -258,70 +77,79 @@ const MAPPER_CFG = {
 // ── component ──────────────────────────────────────────────────────────────
 
 export function ConciliacaoBase({ fornecedora = '' }) {
-  const [rawBase,   setRawBase]   = useState(null); const [dfBase,   setDfBase]   = useState(null); const [nBase,   setNBase]   = useState('')
-  const [rawFin,    setRawFin]    = useState(null); const [dfFin,    setDfFin]    = useState(null); const [nFin,    setNFin]    = useState('')
-  const [rawRec,    setRawRec]    = useState(null); const [dfRec,    setDfRec]    = useState(null); const [nRec,    setNRec]    = useState('')
-  const [rawStatus, setRawStatus] = useState(null); const [dfStatus, setDfStatus] = useState(null); const [nStatus, setNStatus] = useState('')
+  const [baseId, setBaseId] = useState(null); const [rawBase, setRawBase] = useState(null); const [nBase, setNBase] = useState('')
+  const [finId, setFinId]   = useState(null); const [rawFin,  setRawFin]  = useState(null); const [nFin,  setNFin]  = useState('')
+  const [recId, setRecId]   = useState(null); const [rawRec,  setRawRec]  = useState(null); const [nRec,  setNRec]  = useState('')
+  const [statusId, setStatusId] = useState(null); const [rawStatus, setRawStatus] = useState(null); const [nStatus, setNStatus] = useState('')
 
   const [mapperOpen,    setMapperOpen]    = useState(false)
   const [mapperFor,     setMapperFor]     = useState(null)
   const [mapperRaw,     setMapperRaw]     = useState([])
   const [savedMappings, setSavedMappings] = useState({})
 
-  const [res,  setRes]  = useState(null)
-  const [aba,  setAba]  = useState('m1')
-  const [proc, setProc] = useState(false)
+  const [res,    setRes]    = useState(null)
+  const [jobId,  setJobId]  = useState(null)
+  const [aba,    setAba]    = useState('m1')
+  const [proc,   setProc]   = useState(false)
 
   const limpar = () => {
-    setRawBase(null);   setDfBase(null);   setNBase('')
-    setRawFin(null);    setDfFin(null);    setNFin('')
-    setRawRec(null);    setDfRec(null);    setNRec('')
-    setRawStatus(null); setDfStatus(null); setNStatus('')
+    setBaseId(null);   setRawBase(null);   setNBase('')
+    setFinId(null);    setRawFin(null);    setNFin('')
+    setRecId(null);    setRawRec(null);    setNRec('')
+    setStatusId(null); setRawStatus(null); setNStatus('')
     setSavedMappings({})
-    setRes(null); setAba('m1')
+    setRes(null); setJobId(null); setAba('m1')
   }
 
   const abrirMapper = (key, raw) => { setMapperFor(key); setMapperRaw(raw); setMapperOpen(true) }
 
-  const handleFile = (rawSetter, nameSetter, mapperKey) => async file => {
+  const handleFile = (idSetter, rawSetter, nameSetter, mapperKey) => async file => {
     try {
-      const rows = await lerXlsx(file)
-      rawSetter(rows); nameSetter(file.name); setRes(null)
+      const resp = await uploadSpreadsheet(file)
+      idSetter(resp.upload_id)
+      const rows = normalizarRows(resp.rows || [])
+      rawSetter(rows); nameSetter(file.name); setRes(null); setJobId(null)
       // Limpa o mapeamento salvo deste slot — novo arquivo pode ter colunas diferentes
       setSavedMappings(prev => ({ ...prev, [mapperKey]: null }))
       abrirMapper(mapperKey, rows)
-    } catch (e) { alert('Erro ao ler arquivo: ' + e.message) }
+    } catch (e) { alert('Erro ao fazer upload do arquivo: ' + e.message) }
   }
 
   const handleMapperConfirm = (remapped, mapping) => {
     setMapperOpen(false)
-    // Persiste o mapeamento confirmado para restaurar se o lápis reabrir
+    // Persiste o mapeamento confirmado
     setSavedMappings(prev => ({ ...prev, [mapperFor]: mapping }))
-    if (mapperFor === 'base')   setDfBase(remapped)
-    if (mapperFor === 'fin')    setDfFin(remapped)
-    if (mapperFor === 'rec')    setDfRec(remapped)
-    if (mapperFor === 'status') setDfStatus(remapped)
   }
 
   const processar = async () => {
-    if (!dfBase || !dfFin || !dfRec || !dfStatus) return
+    if (!baseId || !finId || !recId || !statusId) return
+    if (!savedMappings.base || !savedMappings.fin || !savedMappings.rec || !savedMappings.status) {
+      alert("Por favor, confirme todos os mapeamentos de colunas antes de processar.")
+      return
+    }
     setProc(true)
-    await new Promise(r => setTimeout(r, 50))
     try {
-      const r = classificar(dfBase, dfFin, dfRec, dfStatus)
-      setRes(r)
-      setAba(MARCACOES.find(m => (r[m.key] || []).length > 0)?.key || 'm1')
+      const payload = {
+        base: { upload_id: baseId, mapping: savedMappings.base },
+        fin: { upload_id: finId, mapping: savedMappings.fin },
+        rec: { upload_id: recId, mapping: savedMappings.rec },
+        status: { upload_id: statusId, mapping: savedMappings.status },
+      }
+      const r = await processConciliacao(payload)
+      setRes(r.counts)
+      setJobId(r.job_id)
+      setAba(MARCACOES.find(m => (r.counts[m.key] || 0) > 0)?.key || 'm1')
     } catch (e) { alert('Erro ao processar: ' + e.message) }
     finally { setProc(false) }
   }
 
-  const pronto = !!dfBase && !!dfFin && !!dfRec && !!dfStatus
+  const pronto = !!baseId && !!finId && !!recId && !!statusId
   const cfg    = mapperFor ? MAPPER_CFG[mapperFor] : {}
 
-  const Upload = ({ label, sublabel, mapKey, raw, df, name, onFile }) => (
+  const Upload = ({ label, sublabel, mapKey, raw, isLoaded, name, onFile }) => (
     <div className="relative">
-      <UploadBox label={label} sublabel={sublabel} onFile={onFile} loaded={!!df} fileName={name} />
-      {df && (
+      <UploadBox label={label} sublabel={sublabel} onFile={onFile} loaded={isLoaded} fileName={name} />
+      {isLoaded && (
         <button onClick={() => abrirMapper(mapKey, raw)} title="Editar mapeamento de colunas"
           className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-lg border border-acc/30 bg-acc/10 text-acc hover:bg-acc/20 transition-colors z-10">
           <Pencil size={13} />
@@ -330,9 +158,9 @@ export function ConciliacaoBase({ fornecedora = '' }) {
     </div>
   )
 
-  // Só exibe marcações com dados no resultado
+  // Só exibe marcações com dados no resultado (agora res tem os counts numéricos)
   const marcacoesComDados = res
-    ? MARCACOES.filter(m => (res[m.key] || []).length > 0)
+    ? MARCACOES.filter(m => (res[m.key] || 0) > 0)
     : []
 
   return (
@@ -361,60 +189,62 @@ export function ConciliacaoBase({ fornecedora = '' }) {
 
       <div className="grid grid-cols-2 gap-4">
         <Upload label="Base Completa BackOffice"        sublabel="Filtro: Fornecedora + Em qualquer lugar"
-          mapKey="base"   raw={rawBase}   df={dfBase}   name={nBase}   onFile={handleFile(setRawBase,   setNBase,   'base')}   />
+          mapKey="base"   raw={rawBase}   isLoaded={!!baseId}   name={nBase}   onFile={handleFile(setBaseId, setRawBase,   setNBase,   'base')}   />
         <Upload label="Base de Finalizados"             sublabel="Clientes enviados à fornecedora"
-          mapKey="fin"    raw={rawFin}    df={dfFin}    name={nFin}    onFile={handleFile(setRawFin,    setNFin,    'fin')}    />
+          mapKey="fin"    raw={rawFin}    isLoaded={!!finId}    name={nFin}    onFile={handleFile(setFinId, setRawFin,    setNFin,    'fin')}    />
         <Upload label="Base de Recebíveis"              sublabel="Filtro: Fornecedora + Em qualquer lugar"
-          mapKey="rec"    raw={rawRec}    df={dfRec}    name={nRec}    onFile={handleFile(setRawRec,    setNRec,    'rec')}    />
+          mapKey="rec"    raw={rawRec}    isLoaded={!!recId}    name={nRec}    onFile={handleFile(setRecId, setRawRec,    setNRec,    'rec')}    />
         <Upload label="Retorno de Status — Fornecedora" sublabel="Observação GV + Status Rateio GV"
-          mapKey="status" raw={rawStatus} df={dfStatus} name={nStatus} onFile={handleFile(setRawStatus, setNStatus, 'status')} />
+          mapKey="status" raw={rawStatus} isLoaded={!!statusId} name={nStatus} onFile={handleFile(setStatusId, setRawStatus, setNStatus, 'status')} />
       </div>
 
-      <div className="flex justify-end gap-3">
-        {res && (
-          <>
-            <Button variant="ghost" onClick={limpar}><RotateCcw size={14} /> Nova Conciliação</Button>
-            <Button variant="ghost" onClick={() => exportarConciliacao(res, fornecedora)}><Download size={14} /> Exportar Excel</Button>
-          </>
-        )}
-        {!res && (
-          <Button variant="primary" onClick={processar} disabled={!pronto || proc}>
-            <Play size={14} />{proc ? 'Processando…' : 'Processar Conciliação'}
+      <div className="flex justify-between items-center bg-bg2 border border-bd rounded-xl p-4">
+        <div className="flex gap-4 items-center">
+          <Button variant="primary" disabled={!pronto || proc} onClick={processar} className="w-40 flex justify-center">
+            {proc ? <Loader2 size={16} className="animate-spin" /> : <><Play size={14} className="fill-current" /> Processar</>}
           </Button>
+          <Button variant="ghost" onClick={limpar} disabled={proc}>
+            <RotateCcw size={14} /> Limpar
+          </Button>
+        </div>
+        {res && (
+          <div className="flex gap-4 items-center text-sm">
+            <span className="text-tx2">
+              <strong className="text-tx">{res.total?.toLocaleString('pt-BR')}</strong> registros analisados
+            </span>
+            <div className="w-px h-5 bg-bd" />
+            <Button variant="default" onClick={() => downloadUrl(workbookConciliacaoUrl(jobId))}>
+              <Download size={14} /> Baixar Relatório (Excel)
+            </Button>
+          </div>
         )}
       </div>
 
       {res && (
-        <div className="space-y-4">
-
-          {/* Cards de resultado */}
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
           <div className="grid grid-cols-4 gap-3">
             {marcacoesComDados.map(m => (
               <MetricCard
                 key={m.key}
                 label={m.label}
-                value={(res[m.key] || []).length}
-                sub={`${Math.round((res[m.key] || []).length / res.total * 100)}% do total`}
+                value={(res[m.key] || 0).toLocaleString('pt-BR')}
+                sub={`${Math.round(((res[m.key] || 0) / (res.total || 1)) * 100)}% do total`}
                 color={m.cor}
+                active={aba === m.key}
                 onClick={() => setAba(m.key)}
               />
             ))}
           </div>
 
-          {/* Tabela */}
-          <div className="bg-s1 border border-bd rounded-xl overflow-hidden">
-            <div className="px-5 pt-5">
-              <TabBar
-                abas={marcacoesComDados.map(m => ({ ...m, count: (res[m.key] || []).length }))}
-                abaAtiva={aba}
-                onTab={setAba}
-              />
-            </div>
-            <div className="px-5 pb-5">
-              <DataTable rows={res[aba] || []} />
-            </div>
+          <div className="bg-bg2 border border-bd rounded-xl p-6 text-center text-tx2 space-y-2">
+            <h3 className="text-lg font-medium text-tx">Visualização Oculta</h3>
+            <p>
+              A renderização da tabela na interface gráfica foi desabilitada para garantir performance máxima, pois a visualização de dezenas de milhares de registros no navegador causa lentidão extrema.
+            </p>
+            <p>
+              Para conferir os dados classificados para cada marcação, clique no botão <strong className="text-tx">"Baixar Relatório (Excel)"</strong> acima. O arquivo gerado contém todas as planilhas divididas por status.
+            </p>
           </div>
-
         </div>
       )}
     </div>
