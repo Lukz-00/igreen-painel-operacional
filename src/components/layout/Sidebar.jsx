@@ -12,6 +12,7 @@ const MENU = [
   ]},
   { id:'financeiro', label:'Operações Financeiras', icon:TrendingUp, tipo:'grupo', filhos:[
     { id:'faturamento', label:'Pagadoria' },
+    { id:'qualidade-injecao', label:'Qualidade de Injeção', sub:'Índice por UC e mês' },
   ]},
 ]
 

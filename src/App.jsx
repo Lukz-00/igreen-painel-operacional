@@ -4,6 +4,7 @@ import { Topbar } from './components/layout/Topbar'
 import { Home } from './pages/Home'
 import { Faturamento } from './pages/Faturamento'
 import { ConciliacaoBase } from './pages/ConciliacaoBase'
+import { QualidadeInjecao } from './pages/QualidadeInjecao'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
 function Router() {
@@ -11,6 +12,7 @@ function Router() {
   const pages = {
     home: <Home />,
     faturamento: <Faturamento />,
+    'qualidade-injecao': <QualidadeInjecao />,
     'ivolt-gv':       <ConciliacaoBase fornecedora="GV" />,
     'ivolt-sunne':    <ConciliacaoBase fornecedora="SUNNE" />,
     'ivolt-edp':      <ConciliacaoBase fornecedora="EDP" />,

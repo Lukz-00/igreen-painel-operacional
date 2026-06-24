@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext'
 const TITULOS = {
   home:          { bc:'Início',                titulo:'Visão Geral' },
   faturamento:   { bc:'Operações Financeiras', titulo:'Cruzamento Pagadoria × Recebíveis' },
+  'qualidade-injecao': { bc:'Operações Financeiras', titulo:'Qualidade de Injeção' },
   'ivolt-gv':    { bc:'Conciliação de Base',   titulo:'GV' },
   'ivolt-sunne': { bc:'Conciliação de Base',   titulo:'SUNNE' },
   'ivolt-edp':   { bc:'Conciliação de Base',   titulo:'EDP' },
