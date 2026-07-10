@@ -23,7 +23,7 @@ def _unique_headers(values: Iterable[Any]) -> list[str]:
     return headers
 
 
-def preview_table(path: Path, limit: int = 3) -> dict[str, Any]:
+def preview_table(path: Path, limit: int = 3, sheet_name: str | None = None) -> dict[str, Any]:
     if path.suffix.lower() == ".csv":
         with path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
             sample = fh.read(131072)
@@ -38,22 +38,23 @@ def preview_table(path: Path, limit: int = 3) -> dict[str, Any]:
         # Contagem em streaming, sem materializar a planilha.
         with path.open("rb") as fh:
             row_count = max(sum(chunk.count(b"\n") for chunk in iter(lambda: fh.read(8 << 20), b"")) - 1, 0)
-        return {"headers": headers, "rows": rows, "row_count": row_count}
+        return {"headers": headers, "rows": rows, "row_count": row_count, "sheets": [], "sheet_name": ""}
 
     wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
-        ws = wb[wb.sheetnames[0]]
+        selected = sheet_name if sheet_name in wb.sheetnames else wb.sheetnames[0]
+        ws = wb[selected]
         iterator = ws.iter_rows(values_only=True)
         headers = _unique_headers(next(iterator, []))
         rows = [dict(zip(headers, values)) for _, values in zip(range(limit), iterator)]
         if ws.max_row is None:
             ws.calculate_dimension(force=True)
-        return {"headers": headers, "rows": rows, "row_count": max((ws.max_row or 1) - 1, 0)}
+        return {"headers": headers, "rows": rows, "row_count": max((ws.max_row or 1) - 1, 0), "sheets": wb.sheetnames, "sheet_name": selected}
     finally:
         wb.close()
 
 
-def read_table(path: Path) -> pl.DataFrame:
+def read_table(path: Path, sheet_name: str | None = None) -> pl.DataFrame:
     """Lê CSV/XLSX com Polars; todos os campos ficam textuais e previsíveis."""
     if path.suffix.lower() == ".csv":
         return pl.read_csv(
@@ -65,7 +66,7 @@ def read_table(path: Path) -> pl.DataFrame:
             null_values=[],
             truncate_ragged_lines=True,
         ).fill_null("")
-    frame = pl.read_excel(path, engine="calamine", infer_schema_length=0)
+    frame = pl.read_excel(path, engine="calamine", infer_schema_length=0, sheet_name=sheet_name) if sheet_name else pl.read_excel(path, engine="calamine", infer_schema_length=0)
     return frame.select(pl.all().cast(pl.String, strict=False).fill_null(""))
 
 

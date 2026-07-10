@@ -5,6 +5,9 @@ import { Home } from './pages/Home'
 import { Faturamento } from './pages/Faturamento'
 import { ConciliacaoBase } from './pages/ConciliacaoBase'
 import { QualidadeInjecao } from './pages/QualidadeInjecao'
+import { BoletosFaltantes } from './pages/BoletosFaltantes'
+import { Inadimplentes } from './pages/Inadimplentes'
+import { Atualizacoes } from './pages/Atualizacoes'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
 function Router() {
@@ -12,7 +15,10 @@ function Router() {
   const pages = {
     home: <Home />,
     faturamento: <Faturamento />,
+    inadimplentes: <Inadimplentes />,
+    atualizacoes: <Atualizacoes />,
     'qualidade-injecao': <QualidadeInjecao />,
+    'boletos-faltantes': <BoletosFaltantes />,
     'ivolt-gv':       <ConciliacaoBase fornecedora="GV" />,
     'ivolt-sunne':    <ConciliacaoBase fornecedora="SUNNE" />,
     'ivolt-edp':      <ConciliacaoBase fornecedora="EDP" />,

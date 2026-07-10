@@ -12,6 +12,9 @@ const MENU = [
   ]},
   { id:'financeiro', label:'Operações Financeiras', icon:TrendingUp, tipo:'grupo', filhos:[
     { id:'faturamento', label:'Pagadoria' },
+    { id:'atualizacoes', label:'Atualizacoes', sub:'Boletos atualizados' },
+    { id:'inadimplentes', label:'Inadimplentes', sub:'Vencidos x atraso faturamento' },
+    { id:'boletos-faltantes', label:'Boletos Faltantes', sub:'Lacunas por UC e mes' },
     { id:'qualidade-injecao', label:'Qualidade de Injeção', sub:'Índice por UC e mês' },
   ]},
 ]

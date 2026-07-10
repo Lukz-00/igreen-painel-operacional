@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 from .excel_io import preview_table, read_table, write_workbook
 from .reconciliation import apply_mapping, reconcile_faturamento
 from .conciliacao import reconcile_conciliacao
+from .inadimplentes import reconcile_inadimplentes
+from .atualizacoes import reconcile_atualizacoes
 
 
 ROOT = Path(tempfile.gettempdir()) / "igreen-polars"
@@ -40,6 +42,7 @@ class Source(BaseModel):
     upload_id: str
     mapping: dict[str, str] = Field(default_factory=dict)
     uc_mode: str = "uc"
+    sheet_name: str | None = None
 
 
 class ProcessRequest(BaseModel):
@@ -52,6 +55,26 @@ class ConciliacaoProcessRequest(BaseModel):
     fin: Source
     rec: Source
     status: Source
+
+
+class InadimplentesProcessRequest(BaseModel):
+    pag: Source
+    rec: Source
+    cli: Source
+    inc: Source | None = None
+    lab: Source | None = None
+    pag_cmu: Source | None = None
+    pag_northen: Source | None = None
+    cli_cmu: Source | None = None
+    min_overdue: int = Field(default=2, ge=1, le=24)
+
+
+class AtualizacoesProcessRequest(BaseModel):
+    atualizacao: Source
+    faturamento: Source
+    rec: Source
+    pag_northen: Source
+    pag_interna: Source
 
 
 SHEET_KEYS = {
@@ -102,15 +125,20 @@ def _upload_path(upload_id: str) -> Path:
     return matches[0]
 
 
+@app.get("/api/uploads/{upload_id}/preview")
+def upload_preview(upload_id: str, sheet_name: str = "") -> dict:
+    return preview_table(_upload_path(upload_id), sheet_name=sheet_name or None)
+
+
 @app.post("/api/faturamento/process")
 def process(request: ProcessRequest) -> dict:
     job_id = uuid.uuid4().hex
     job_dir = JOBS / job_id
     job_dir.mkdir()
     try:
-        pag = apply_mapping(read_table(_upload_path(request.pag.upload_id)), request.pag.mapping, uc_mode=request.pag.uc_mode)
-        rec = apply_mapping(read_table(_upload_path(request.rec.upload_id)), request.rec.mapping)
-        cli = apply_mapping(read_table(_upload_path(request.cli.upload_id)), request.cli.mapping) if request.cli else None
+        pag = apply_mapping(read_table(_upload_path(request.pag.upload_id), request.pag.sheet_name), request.pag.mapping, uc_mode=request.pag.uc_mode)
+        rec = apply_mapping(read_table(_upload_path(request.rec.upload_id), request.rec.sheet_name), request.rec.mapping)
+        cli = apply_mapping(read_table(_upload_path(request.cli.upload_id), request.cli.sheet_name), request.cli.mapping) if request.cli else None
         result = reconcile_faturamento(pag, rec, cli)
         previews: dict[str, list[dict]] = {}
         counts: dict[str, int] = dict(result.metrics)
@@ -190,10 +218,10 @@ def process_conciliacao(request: ConciliacaoProcessRequest) -> dict:
     job_dir = JOBS / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     try:
-        df_base = read_table(_upload_path(request.base.upload_id))
-        df_fin = read_table(_upload_path(request.fin.upload_id))
-        df_rec = read_table(_upload_path(request.rec.upload_id))
-        df_status = read_table(_upload_path(request.status.upload_id))
+        df_base = read_table(_upload_path(request.base.upload_id), request.base.sheet_name)
+        df_fin = read_table(_upload_path(request.fin.upload_id), request.fin.sheet_name)
+        df_rec = read_table(_upload_path(request.rec.upload_id), request.rec.sheet_name)
+        df_status = read_table(_upload_path(request.status.upload_id), request.status.sheet_name)
 
         df_base = apply_mapping(df_base, request.base.mapping)
         df_fin = apply_mapping(df_fin, request.fin.mapping)
@@ -257,6 +285,131 @@ def workbook_conciliacao(job_id: str) -> FileResponse:
     if not path.exists():
         raise HTTPException(404, "Resultado não encontrado.")
     return FileResponse(path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=f"conciliacao_base_{datetime.now():%d-%m-%Y}.xlsx")
+
+
+@app.post("/api/inadimplentes/process")
+def process_inadimplentes(request: InadimplentesProcessRequest) -> dict:
+    job_id = uuid.uuid4().hex
+    job_dir = JOBS / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        pag = apply_mapping(read_table(_upload_path(request.pag.upload_id), request.pag.sheet_name), request.pag.mapping)
+        rec = apply_mapping(read_table(_upload_path(request.rec.upload_id), request.rec.sheet_name), request.rec.mapping)
+        cli = apply_mapping(read_table(_upload_path(request.cli.upload_id), request.cli.sheet_name), request.cli.mapping)
+        inc = apply_mapping(read_table(_upload_path(request.inc.upload_id), request.inc.sheet_name), request.inc.mapping) if request.inc else None
+        lab = apply_mapping(read_table(_upload_path(request.lab.upload_id), request.lab.sheet_name), request.lab.mapping) if request.lab else None
+        pag_cmu = apply_mapping(read_table(_upload_path(request.pag_cmu.upload_id), request.pag_cmu.sheet_name), request.pag_cmu.mapping) if request.pag_cmu else None
+        pag_northen = apply_mapping(read_table(_upload_path(request.pag_northen.upload_id), request.pag_northen.sheet_name), request.pag_northen.mapping) if request.pag_northen else None
+        cli_cmu = apply_mapping(read_table(_upload_path(request.cli_cmu.upload_id), request.cli_cmu.sheet_name), request.cli_cmu.mapping) if request.cli_cmu else None
+
+        result = reconcile_inadimplentes(
+            pag,
+            rec,
+            cli,
+            inc,
+            lab,
+            df_pag_cmu=pag_cmu,
+            df_cli_cmu=cli_cmu,
+            df_pag_northen=pag_northen,
+            min_overdue=request.min_overdue,
+        )
+        counts = dict(result.metrics)
+        rows = {
+            "inadimplentes": result.sheets["INADIMPLENTES"].head(PREVIEW_ROWS).to_dicts(),
+            "atrasoFaturamento": result.sheets["ATRASO FATURAMENTO"].head(PREVIEW_ROWS).to_dicts(),
+            "erroInterno": result.sheets["ERRO INTERNO"].head(PREVIEW_ROWS).to_dicts(),
+            "atrasoBackoffice": result.sheets["ATRASO BACKOFFICE"].head(PREVIEW_ROWS).to_dicts(),
+        }
+        workbook_sheets = {
+            title: frame if frame.height else pl.DataFrame({"Resultado": ["Sem registros"]})
+            for title, frame in result.sheets.items()
+        }
+        workbook = job_dir / "inadimplentes.xlsx"
+        summary = [
+            ("Inadimplentes e Atraso de Faturamento", ""),
+            ("Data", datetime.now().strftime("%d/%m/%Y")),
+            ("Minimo de boletos vencidos", request.min_overdue),
+        ]
+        summary.extend((key, value) for key, value in counts.items() if isinstance(value, (int, float)))
+        write_workbook(workbook, summary, workbook_sheets)
+        (job_dir / "meta.json").write_text(json.dumps({"created": datetime.now(timezone.utc).isoformat(), "counts": counts}), encoding="utf-8")
+        return {
+            "job_id": job_id,
+            "counts": counts,
+            "rows": rows,
+            "preview_limit": PREVIEW_ROWS,
+            "logs": result.logs,
+            "download_url": f"/api/inadimplentes/jobs/{job_id}/workbook",
+        }
+    except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(500, f"Falha na analise de inadimplentes: {type(exc).__name__}: {exc}") from exc
+
+
+@app.get("/api/inadimplentes/jobs/{job_id}/workbook")
+def workbook_inadimplentes(job_id: str) -> FileResponse:
+    path = _job_path(job_id) / "inadimplentes.xlsx"
+    if not path.exists():
+        raise HTTPException(404, "Resultado nao encontrado.")
+    return FileResponse(path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=f"inadimplentes_{datetime.now():%d-%m-%Y}.xlsx")
+
+
+@app.post("/api/atualizacoes/process")
+def process_atualizacoes(request: AtualizacoesProcessRequest) -> dict:
+    job_id = uuid.uuid4().hex
+    job_dir = JOBS / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        atualizacao = apply_mapping(read_table(_upload_path(request.atualizacao.upload_id), request.atualizacao.sheet_name), request.atualizacao.mapping)
+        faturamento = apply_mapping(read_table(_upload_path(request.faturamento.upload_id), request.faturamento.sheet_name), request.faturamento.mapping)
+        rec = apply_mapping(read_table(_upload_path(request.rec.upload_id), request.rec.sheet_name), request.rec.mapping)
+        pag_northen = apply_mapping(read_table(_upload_path(request.pag_northen.upload_id), request.pag_northen.sheet_name), request.pag_northen.mapping)
+        pag_interna = apply_mapping(read_table(_upload_path(request.pag_interna.upload_id), request.pag_interna.sheet_name), request.pag_interna.mapping)
+
+        result = reconcile_atualizacoes(atualizacao, faturamento, rec, pag_northen, pag_interna)
+        counts = dict(result.metrics)
+        rows = {
+            "atualizacoes": result.sheets["ATUALIZACOES"].head(PREVIEW_ROWS).to_dicts(),
+            "pendencias": result.sheets["PENDENCIAS"].head(PREVIEW_ROWS).to_dicts(),
+            "auditoria": result.sheets["AUDITORIA"].head(PREVIEW_ROWS).to_dicts(),
+        }
+        workbook_sheets = {
+            title: frame if frame.height else pl.DataFrame({"Resultado": ["Sem registros"]})
+            for title, frame in result.sheets.items()
+        }
+        workbook = job_dir / "atualizacoes.xlsx"
+        summary = [
+            ("Atualizacoes GV", ""),
+            ("Data", datetime.now().strftime("%d/%m/%Y")),
+        ]
+        summary.extend((key, value) for key, value in counts.items() if isinstance(value, (int, float)))
+        write_workbook(workbook, summary, workbook_sheets)
+        (job_dir / "meta.json").write_text(json.dumps({"created": datetime.now(timezone.utc).isoformat(), "counts": counts}), encoding="utf-8")
+        return {
+            "job_id": job_id,
+            "counts": counts,
+            "rows": rows,
+            "preview_limit": PREVIEW_ROWS,
+            "logs": result.logs,
+            "download_url": f"/api/atualizacoes/jobs/{job_id}/workbook",
+        }
+    except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(500, f"Falha na analise de atualizacoes: {type(exc).__name__}: {exc}") from exc
+
+
+@app.get("/api/atualizacoes/jobs/{job_id}/workbook")
+def workbook_atualizacoes(job_id: str) -> FileResponse:
+    path = _job_path(job_id) / "atualizacoes.xlsx"
+    if not path.exists():
+        raise HTTPException(404, "Resultado nao encontrado.")
+    return FileResponse(path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=f"atualizacoes_{datetime.now():%d-%m-%Y}.xlsx")
 
 
 def cleanup_expired(max_age_hours: int = 24) -> None:

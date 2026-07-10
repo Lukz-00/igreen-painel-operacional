@@ -19,6 +19,11 @@ export async function uploadSpreadsheet(file) {
   return (await api('/api/faturamento/upload', { method: 'POST', body: form })).json()
 }
 
+export async function previewSpreadsheetSheet(uploadId, sheetName) {
+  const query = sheetName ? `?sheet_name=${encodeURIComponent(sheetName)}` : ''
+  return (await api(`/api/uploads/${uploadId}/preview${query}`)).json()
+}
+
 export async function processFaturamento(payload) {
   return (await api('/api/faturamento/process', {
     method: 'POST',
@@ -46,6 +51,30 @@ export async function processConciliacao(payload) {
 
 export function workbookConciliacaoUrl(jobId) {
   return `${API_BASE}/api/conciliacao/jobs/${jobId}/workbook`
+}
+
+export async function processInadimplentes(payload) {
+  return (await api('/api/inadimplentes/process', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })).json()
+}
+
+export function workbookInadimplentesUrl(jobId) {
+  return `${API_BASE}/api/inadimplentes/jobs/${jobId}/workbook`
+}
+
+export async function processAtualizacoes(payload) {
+  return (await api('/api/atualizacoes/process', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })).json()
+}
+
+export function workbookAtualizacoesUrl(jobId) {
+  return `${API_BASE}/api/atualizacoes/jobs/${jobId}/workbook`
 }
 
 export function downloadUrl(url) {

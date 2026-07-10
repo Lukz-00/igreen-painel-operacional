@@ -13,10 +13,16 @@ __pycache__/
 !tests/
 !tests/**/*.py
 *.xlsx
+*.xls
+*.xlsm
 *.csv
 *.zip
+*.lnk
+/GV/
 /src/Faltantes/
 /src/BC/
 /src/EDP/
 /src/GV/
 /src/necessario/
+/src/Analisar/
+/src/divergentes_resultado.*
