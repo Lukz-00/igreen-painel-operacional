@@ -1,0 +1,7 @@
+polars>=1.30,<2
+fastexcel>=0.14,<1
+openpyxl>=3.1,<4
+fastapi>=0.115,<1
+uvicorn[standard]>=0.34,<1
+python-multipart>=0.0.20,<1
+

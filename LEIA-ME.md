@@ -18,11 +18,21 @@
 # 3. Instalar dependências
 npm install
 
-# 4. Rodar o servidor de desenvolvimento
+# 4. Preparar o backend Python (somente na primeira vez)
+npm run setup:api
+
+# 5. Rodar a API em um terminal
+npm run dev:api
+
+# 6. Rodar o frontend em outro terminal
 npm run dev
 ```
 
 O sistema abrirá em **http://localhost:5173**
+
+O cruzamento de Faturamento é executado em **http://127.0.0.1:8000** com
+Polars. A API mantém os uploads e resultados por 24 horas na pasta temporária
+do Windows; a saída XLSX é criada com openpyxl em modo de escrita incremental.
 
 ---
 

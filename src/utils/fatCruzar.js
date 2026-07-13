@@ -157,6 +157,7 @@ function extrairPag(r) {
     _uc_norm: normUC(ucRaw),
     _mes_norm: normalizarMes(mesRaw),
     _cpf_norm: normUC(cpfRaw),
+    _raw: r,
     ucRaw,
     mesRaw,
     cpfRaw,
@@ -299,7 +300,7 @@ function extrairPag(r) {
 }
 
 // ── Detecção de Provider da Pagadoria ───────────────────────────
-// Inspeciona os cabeçalhos e valores da planilha para identificar qual
+// Inspeciona os cabeçalhos da planilha para identificar qual
 // fornecedora/distribuidora originou a pagadoria.
 function detectProvider(dfPag) {
   if (!dfPag || !dfPag.length) return 'outros'
@@ -387,6 +388,7 @@ function extrairRec(r) {
     _num_cliente_norm: normUC(ncRaw),
     _cpf_norm: normUC(cpfRaw),
     _mes_norm: normalizarMes(mesRaw),
+    _raw: r,
     ucRaw: ucRaw || ncRaw,
     mesRaw,
     cpfRaw,
@@ -615,6 +617,8 @@ function buildRow(pag, rec) {
     "Link Boleto": pag.linkBoleto || rec.linkBoleto || "—",
     "Cód. Barras Pag.": pag.codBar || "—",
     "Cód. Barras Rec.": rec.codBar || "—",
+    _rawPag: pag._raw || null,
+    _rawRec: rec._raw || null,
   };
 }
 
@@ -634,6 +638,8 @@ function buildRowNorthen(pag, rec) {
     Distribuidora: pag.distribuidora || "—",
     "Energia Compensada": pag.energiaCompensada || "—",
     "Repasse Distribuidora": pag.repasseDistribuidora || "—",
+    _rawPag: pag._raw || null,
+    _rawRec: rec._raw || null,
   };
 }
 
@@ -652,6 +658,7 @@ function buildRowNorthenSemMatch(pag) {
     Distribuidora: pag.distribuidora || "—",
     "Energia Compensada": pag.energiaCompensada || "—",
     "Repasse Distribuidora": pag.repasseDistribuidora || "—",
+    _rawPag: pag._raw || null,
   };
 }
 
@@ -1090,6 +1097,8 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         "Link Boleto Rec.": rec.linkBoleto || "—",
         "Valor Pagadoria": pag.valor || "—",
         "Valor Recebíveis": rec.valor || "—",
+        _rawPag: pag._raw || null,
+        _rawRec: rec._raw || null,
       });
     }
 
@@ -1112,6 +1121,8 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         "Vencimento Pag.": pag.venc || "—",
         "Data Pagamento Pag.": pag.pagto || "—",
         "Data Pagamento Rec.": rec.pagto || "—",
+        _rawPag: pag._raw || null,
+        _rawRec: rec._raw || null,
       });
     }
   });
@@ -1300,6 +1311,7 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         Valor:                   r.valor || '—',
         'No BKO':                bkoUC ? 'SIM' : bkoNome ? 'Parcial (nome)' : 'NÃO',
         Motivo:                  'Cliente da Pagadoria sem nenhuma correspondência nos Recebíveis',
+        _rawPag:                 r._raw || null,
       });
     }
   });
@@ -1321,6 +1333,7 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         Valor:               r.valor || '—',
         'Link Boleto':       r.linkBoleto || '—',
         Motivo:              'Cliente dos Recebíveis sem nenhuma correspondência na Pagadoria',
+        _rawRec:             r._raw || null,
       });
     }
   });
@@ -1404,6 +1417,7 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
       Valor:                     r.valor || '—',
       'Data Pagamento':          r.pagto || '—',
       'Link Boleto':             r.linkBoleto || recNC[0]?.linkBoleto || '—',
+      _rawPag:                   r._raw || null,
     };
 
     if (bkoUC) {
@@ -1462,6 +1476,7 @@ export function fatCruzar(dfPag, dfRec, onLog, dfCli = null) {
         Motivo: existe
           ? `Cliente em ambos — UC na PAG mas mês ${r._mes_norm} ausente da Pagadoria`
           : 'Cliente em ambos — UC nos Rec. sem correspondência de mês na Pagadoria',
+        _rawRec:                   r._raw || null,
       };
     });
 

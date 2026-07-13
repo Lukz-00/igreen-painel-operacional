@@ -4,22 +4,28 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "concurrently \"vite --host\" \"npm run dev:api\"",
+    "setup:api": "if exist .venv\\Scripts\\python.exe (.venv\\Scripts\\python.exe -m pip install -r requirements.txt) else (py -3 -m venv .venv && .venv\\Scripts\\python.exe -m pip install -r requirements.txt)",
+    "dev:api": ".venv\\Scripts\\python.exe -m server.app",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "lucide-react": "^0.383.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "xlsx": "^0.18.5",
     "recharts": "^2.12.7",
-    "lucide-react": "^0.383.0"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^10.0.3",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "vite": "^5.3.1"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
   }
 }
