@@ -3,19 +3,117 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-bg: 244 247 250;
+    --color-bg2: 235 241 247;
+    --color-s1: 255 255 255;
+    --color-s2: 244 248 252;
+    --color-s3: 232 239 246;
+    --color-bd: 211 222 233;
+    --color-bd2: 184 200 216;
+    --color-acc: 18 158 88;
+    --color-onacc: 4 24 14;
+    --color-tx: 22 32 45;
+    --color-tx2: 74 88 106;
+    --color-tx3: 111 126 145;
+    --color-danger: 220 38 38;
+    --color-warn: 217 119 6;
+    --color-info: 37 99 235;
+    --color-purple: 126 58 242;
+    --color-orange: 234 88 12;
+    color-scheme: light;
+  }
+
+  html[data-theme='dark'] {
+    --color-bg: 12 16 22;
+    --color-bg2: 17 22 30;
+    --color-s1: 20 26 35;
+    --color-s2: 27 35 46;
+    --color-s3: 36 46 60;
+    --color-bd: 50 63 80;
+    --color-bd2: 73 88 108;
+    --color-acc: 34 197 94;
+    --color-onacc: 3 20 11;
+    --color-tx: 238 242 247;
+    --color-tx2: 172 184 199;
+    --color-tx3: 116 132 151;
+    --color-danger: 248 113 113;
+    --color-warn: 245 158 11;
+    --color-info: 96 165 250;
+    --color-purple: 192 132 252;
+    --color-orange: 251 146 60;
+    color-scheme: dark;
+  }
+
   * { box-sizing: border-box; }
+
+  html {
+    background-color: rgb(var(--color-bg));
+  }
+
   body {
-    background-color: #0e1117;
-    color: #f1f5f9;
+    min-width: 320px;
+    margin: 0;
+    background-color: rgb(var(--color-bg));
+    color: rgb(var(--color-tx));
     font-family: 'Inter', system-ui, sans-serif;
     font-size: 14px;
     line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
+
+  button, input, select, textarea {
+    font: inherit;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid rgb(var(--color-acc) / 0.55);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--color-acc) / 0.22);
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #263040; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-bd2) / 0.8);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-tx3) / 0.7); }
+}
+
+@layer components {
+  .app-surface {
+    background:
+      linear-gradient(180deg, rgb(var(--color-s2) / 0.72), transparent 220px),
+      rgb(var(--color-bg));
+  }
+
+  .panel {
+    background: rgb(var(--color-s1) / 0.94);
+    border: 1px solid rgb(var(--color-bd));
+    box-shadow: 0 1px 0 rgb(var(--color-s1) / 0.7) inset;
+  }
+
+  html[data-theme='dark'] .panel {
+    background: rgb(var(--color-s1) / 0.92);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.035) inset;
+  }
+
+  .subtle-divider {
+    background: linear-gradient(90deg, transparent, rgb(var(--color-bd)), transparent);
+  }
 }
 
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .text-balance { text-wrap: balance; }
 }

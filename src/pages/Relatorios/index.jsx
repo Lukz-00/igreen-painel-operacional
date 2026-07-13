@@ -174,12 +174,12 @@ function ReportView({ report, onBack }) {
                       dataKey="value"
                     >
                       {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} stroke="rgba(255,255,255,0.1)" />
+                        <Cell key={`cell-${index}`} fill={entry.fill} stroke="rgb(var(--color-s1))" />
                       ))}
                     </Pie>
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
+                      contentStyle={{ backgroundColor: 'rgb(var(--color-s1))', border: '1px solid rgb(var(--color-bd))', borderRadius: '8px', color: 'rgb(var(--color-tx))' }}
+                      itemStyle={{ color: 'rgb(var(--color-tx))' }}
                     />
                     <Legend />
                   </PieChart>
@@ -192,12 +192,12 @@ function ReportView({ report, onBack }) {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
-                    <XAxis type="number" stroke="#64748b" />
-                    <YAxis dataKey="name" type="category" width={100} stroke="#64748b" fontSize={11} />
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgb(var(--color-bd) / 0.65)" />
+                    <XAxis type="number" stroke="rgb(var(--color-tx3))" />
+                    <YAxis dataKey="name" type="category" width={100} stroke="rgb(var(--color-tx3))" fontSize={11} />
                     <Tooltip 
-                      cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                      contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                      cursor={{fill: 'rgb(var(--color-s2) / 0.75)'}}
+                      contentStyle={{ backgroundColor: 'rgb(var(--color-s1))', border: '1px solid rgb(var(--color-bd))', borderRadius: '8px', color: 'rgb(var(--color-tx))' }}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                       {barData.map((entry, index) => (

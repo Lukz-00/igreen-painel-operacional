@@ -6,10 +6,10 @@ export function Badge({ children, color='gray' }) {
     blue:   'bg-info/10 text-info border border-info/20',
     purple: 'bg-purple/10 text-purple border border-purple/20',
     orange: 'bg-orange/10 text-orange border border-orange/20',
-    gray:   'bg-s3 text-tx2 border border-bd2',
+    gray:   'bg-s3 text-tx2 border border-bd',
   }
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-current ${colors[color]||colors.gray}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-[''] ${colors[color]||colors.gray}`}>
       {children}
     </span>
   )

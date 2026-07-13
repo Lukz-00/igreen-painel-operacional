@@ -367,8 +367,8 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-s1 border border-bd rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-bd bg-s1 shadow-2xl">
 
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-bd">
@@ -388,7 +388,7 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
                     onClick={() => setUcMode('uc')}
                     className={`px-3 py-1.5 transition-colors ${
                       ucMode === 'uc'
-                        ? 'bg-acc text-black'
+                        ? 'bg-acc text-onacc'
                         : 'bg-s2 text-tx3 hover:bg-s3'
                     }`}
                   >
@@ -398,7 +398,7 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
                     onClick={() => setUcMode('num_cliente')}
                     className={`px-3 py-1.5 transition-colors border-l border-bd ${
                       ucMode === 'num_cliente'
-                        ? 'bg-acc text-black'
+                        ? 'bg-acc text-onacc'
                         : 'bg-s2 text-tx3 hover:bg-s3'
                     }`}
                   >
@@ -423,7 +423,7 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
 
           {/* Aviso de campos obrigatórios */}
           {missingRequired.length > 0 && (
-            <div className="flex items-start gap-2.5 bg-warn/8 border border-warn/20 rounded-xl p-3.5 text-xs text-warn">
+            <div className="flex items-start gap-2.5 bg-warn/10 border border-warn/20 rounded-xl p-3.5 text-xs text-warn">
               <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
               <span>Campos obrigatórios sem mapeamento: <strong>{missingRequired.map(f => f.label).join(', ')}</strong></span>
             </div>
@@ -527,7 +527,7 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
             <button
               onClick={handleConfirm}
               disabled={missingRequired.length > 0}
-              className="px-4 py-2 text-xs font-bold bg-acc text-black rounded-lg hover:bg-green-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5">
+              className="px-4 py-2 text-xs font-bold bg-acc text-onacc rounded-lg hover:bg-acc/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5">
               <Check size={13} /> Confirmar e carregar
             </button>
           </div>

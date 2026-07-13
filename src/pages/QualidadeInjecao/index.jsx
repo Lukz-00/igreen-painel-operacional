@@ -300,7 +300,7 @@ function QualBadge({ q }) {
     Excelente: { bg: 'rgba(34,197,94,0.15)', color: '#22c55e' },
     Bom: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
     Atencao: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
-  }[q] || { bg: 'rgba(255,255,255,0.07)', color: '#aaa' }
+  }[q] || { bg: 'rgb(var(--color-s3) / 0.8)', color: 'rgb(var(--color-tx3))' }
   return (
     <span style={{ background: cfg.bg, color: cfg.color, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
       {q}
@@ -332,7 +332,7 @@ function ResultTable({ rows }) {
           </thead>
           <tbody>
             {paginadas.map((r, i) => (
-              <tr key={`${r.UC}-${r.Mes}-${i}`} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+              <tr key={`${r.UC}-${r.Mes}-${i}`} className="border-b border-bd transition-colors hover:bg-s2/70">
                 <td className="p-3 font-mono text-[10px] text-purple-400">{r.UC}</td>
                 <td className="p-3 max-w-[180px] truncate text-tx2" title={r.Cliente}>{r.Cliente}</td>
                 <td className="p-3 text-tx3 whitespace-nowrap">{r.Mes}</td>
@@ -356,10 +356,10 @@ function ResultTable({ rows }) {
       {total > POR_PAG && (
         <div className="p-3 flex items-center gap-2 border-t border-bd text-tx3 text-xs">
           <span>{pagina * POR_PAG + 1}-{Math.min((pagina + 1) * POR_PAG, total)} de {total}</span>
-          <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={pagina === 0} className="px-2 py-1 rounded border border-white/10 hover:bg-white/10 disabled:opacity-50">
+          <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={pagina === 0} className="rounded-lg border border-bd px-2 py-1 hover:bg-s3 disabled:opacity-50">
             &lsaquo;
           </button>
-          <button onClick={() => setPagina(p => p + 1)} disabled={(pagina + 1) * POR_PAG >= total} className="px-2 py-1 rounded border border-white/10 hover:bg-white/10 disabled:opacity-50">
+          <button onClick={() => setPagina(p => p + 1)} disabled={(pagina + 1) * POR_PAG >= total} className="rounded-lg border border-bd px-2 py-1 hover:bg-s3 disabled:opacity-50">
             &rsaquo;
           </button>
         </div>
@@ -618,8 +618,8 @@ export function QualidadeInjecao() {
                       <Pie data={stats.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false}>
                         {stats.pieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
-                      <Legend iconSize={10} wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
-                      <Tooltip formatter={(v) => [`${v} registros`]} contentStyle={{ background: '#1e1e2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+                      <Legend iconSize={10} wrapperStyle={{ fontSize: 11, color: 'rgb(var(--color-tx3))' }} />
+                      <Tooltip formatter={(v) => [`${v} registros`]} contentStyle={{ background: 'rgb(var(--color-s1))', border: '1px solid rgb(var(--color-bd))', borderRadius: 8, color: 'rgb(var(--color-tx))', fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -628,10 +628,10 @@ export function QualidadeInjecao() {
                   <p className="m-0 mb-3 text-xs font-bold text-tx3 uppercase tracking-wider">Histograma de Distribuicao</p>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={stats.histData} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                      <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 9 }} />
-                      <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 9 }} />
-                      <Tooltip contentStyle={{ background: '#1e1e2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-bd) / 0.65)" />
+                      <XAxis dataKey="name" tick={{ fill: 'rgb(var(--color-tx3))', fontSize: 9 }} />
+                      <YAxis tick={{ fill: 'rgb(var(--color-tx3))', fontSize: 9 }} />
+                      <Tooltip contentStyle={{ background: 'rgb(var(--color-s1))', border: '1px solid rgb(var(--color-bd))', borderRadius: 8, color: 'rgb(var(--color-tx))', fontSize: 11 }} />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                         {stats.histData.map((entry, i) => {
                           const pct = parseInt(entry.name)
@@ -662,7 +662,7 @@ export function QualidadeInjecao() {
                   <option value="todos">Todos os Meses</option>
                   {opcoesData.meses.map(m => <option key={m} value={m}>Mes {m}</option>)}
                 </select>
-                <Button variant="default" onClick={handleExport} disabled={rowsFiltradas.length === 0} className="!px-3 !py-1.5 !text-xs bg-white/5 hover:bg-white/10 border-white/10">
+                <Button variant="default" onClick={handleExport} disabled={rowsFiltradas.length === 0} className="!px-3 !py-1.5 !text-xs">
                   <Download size={13} /> Exportar XLSX
                 </Button>
               </div>
@@ -675,7 +675,7 @@ export function QualidadeInjecao() {
                 { key: 'bom', label: 'Bom 80-94%' },
                 { key: 'atencao', label: 'Atencao <80%' },
               ].map(f => (
-                <button key={f.key} onClick={() => setFiltroQual(f.key)} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-colors ${filtroQual === f.key ? 'border-purple-500/50 bg-purple-500/15 text-purple-400' : 'border-white/10 bg-transparent text-tx3 hover:bg-white/5'}`}>
+                <button key={f.key} onClick={() => setFiltroQual(f.key)} className={`rounded-full border px-3 py-1 text-[10px] font-bold transition-colors ${filtroQual === f.key ? 'border-purple-500/50 bg-purple-500/15 text-purple-400' : 'border-bd bg-transparent text-tx3 hover:bg-s2'}`}>
                   {f.label}
                 </button>
               ))}

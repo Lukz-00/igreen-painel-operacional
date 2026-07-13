@@ -277,14 +277,14 @@ function FaltaPagModal({ rows, onClose }) {
   const CORES = ['#a855f7', '#3b82f6', '#ef4444', '#f59e0b', '#22c55e', '#fb923c']
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-s1 rounded-2xl border border-bd shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b border-bd">
           <div>
             <h2 className="text-lg font-bold text-tx">Relatório — Falta na Pagadoria</h2>
             <p className="text-xs text-tx3 mt-1">{rows.length} boletos dos Recebíveis sem correspondência na Pagadoria</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-tx3 hover:text-tx transition-colors">
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-s3 text-tx3 hover:text-tx transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -313,12 +313,12 @@ function FaltaPagModal({ rows, onClose }) {
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={porFornecedora} layout="vertical" margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
-                    <XAxis type="number" stroke="#64748b" fontSize={11} />
-                    <YAxis dataKey="name" type="category" width={110} stroke="#64748b" fontSize={11} />
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgb(var(--color-bd) / 0.65)" />
+                    <XAxis type="number" stroke="rgb(var(--color-tx3))" fontSize={11} />
+                    <YAxis dataKey="name" type="category" width={110} stroke="rgb(var(--color-tx3))" fontSize={11} />
                     <Tooltip
-                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                      contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                      cursor={{ fill: 'rgb(var(--color-s2) / 0.75)' }}
+                      contentStyle={{ backgroundColor: 'rgb(var(--color-s1))', border: '1px solid rgb(var(--color-bd))', borderRadius: '8px', color: 'rgb(var(--color-tx))' }}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                       {porFornecedora.map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
@@ -396,18 +396,13 @@ function extrairAnoDoRow(row) {
 function AnoChip({ ano, ativo, onToggle }) {
   return (
     <button
+      type="button"
       onClick={() => onToggle(ano)}
-      style={{
-        padding: '2px 10px',
-        borderRadius: 20,
-        fontSize: 11,
-        fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-        border: ativo ? '1.5px solid #a855f7' : '1.5px solid rgba(255,255,255,0.12)',
-        background: ativo ? 'rgba(168,85,247,0.18)' : 'rgba(255,255,255,0.04)',
-        color: ativo ? '#c084fc' : 'rgba(255,255,255,0.45)',
-      }}
+      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+        ativo
+          ? 'border-purple/50 bg-purple/10 text-purple'
+          : 'border-bd bg-s2 text-tx3 hover:border-bd2 hover:text-tx'
+      }`}
     >
       {ano}
     </button>
@@ -507,7 +502,7 @@ function YearFilteredTabArea({
       {/* Filtro de Ano */}
       {abaComFiltro && anosDisponiveis.length >= 1 && (
         <div className="px-5 pt-3 pb-1 flex items-center gap-2 flex-wrap">
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-tx3">
             Filtrar por ano:
           </span>
           {anosDisponiveis.map(ano => (
@@ -521,17 +516,13 @@ function YearFilteredTabArea({
           {anosAtivos.size > 0 && (
             <button
               onClick={() => setAnosAtivos(new Set())}
-              style={{
-                fontSize: 10, color: 'rgba(255,255,255,0.3)', background: 'none',
-                border: 'none', cursor: 'pointer', marginLeft: 4,
-                textDecoration: 'underline',
-              }}
+              className="ml-1 text-[10px] text-tx3 underline transition-colors hover:text-tx"
             >
               Limpar filtro
             </button>
           )}
           {anosAtivos.size > 0 && (
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginLeft: 'auto' }}>
+            <span className="ml-auto text-[10px] text-tx3">
               {rowsFiltradas.length} exibidos de {contagens?.[abaAtiva] || 0} registros
             </span>
           )}

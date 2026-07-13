@@ -7,7 +7,7 @@ export function DataTable({ rows = [], maxRows = 300 }) {
   const [sortDir, setSortDir] = useState('asc')
 
   if (!rows.length) return (
-    <div className="text-center py-12 text-tx3 text-sm">Nenhum registro encontrado.</div>
+    <div className="rounded-xl border border-dashed border-bd bg-s1 py-12 text-center text-sm text-tx3">Nenhum registro encontrado.</div>
   )
 
   const headers = Object.keys(rows[0])
@@ -40,15 +40,15 @@ export function DataTable({ rows = [], maxRows = 300 }) {
   }
 
   return (
-    <div>
-      <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+    <div className="overflow-hidden rounded-xl border border-bd bg-s1">
+      <div className="max-h-[520px] overflow-auto">
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr>
               {headers.map(h => (
                 <th key={h}
                   onClick={() => handleSort(h)}
-                  className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-tx3 bg-s2 border-b border-bd whitespace-nowrap sticky top-0 cursor-pointer hover:text-tx select-none">
+                  className="sticky top-0 cursor-pointer select-none whitespace-nowrap border-b border-bd bg-s2 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-tx3 hover:text-tx">
                   <div className="flex items-center gap-1">
                     {h}
                     <SortIcon col={h} />
@@ -59,7 +59,7 @@ export function DataTable({ rows = [], maxRows = 300 }) {
           </thead>
           <tbody>
             {slice.map((row, i) => (
-              <tr key={i} className="border-b border-bd hover:bg-s2/50 transition-colors">
+              <tr key={i} className="border-b border-bd transition-colors hover:bg-s2/70">
                 {headers.map(h => (
                   <td key={h} className="px-3 py-2.5 text-tx2 whitespace-nowrap max-w-[240px] truncate"
                     title={String(row[h] ?? '')}>
@@ -72,13 +72,13 @@ export function DataTable({ rows = [], maxRows = 300 }) {
         </table>
       </div>
       {totalPags > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-bd bg-s2 text-[11px] text-tx3">
+        <div className="flex items-center justify-between border-t border-bd bg-s2 px-4 py-3 text-[11px] text-tx3">
           <span>{rows.length.toLocaleString('pt-BR')} registros · página {pagina + 1} de {totalPags}</span>
           <div className="flex gap-2">
             <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={pagina === 0}
-              className="px-3 py-1 border border-bd rounded hover:bg-s3 disabled:opacity-40">← Anterior</button>
+              className="rounded-lg border border-bd px-3 py-1 hover:bg-s3 disabled:opacity-40">← Anterior</button>
             <button onClick={() => setPagina(p => Math.min(totalPags - 1, p + 1))} disabled={pagina === totalPags - 1}
-              className="px-3 py-1 border border-bd rounded hover:bg-s3 disabled:opacity-40">Próxima →</button>
+              className="rounded-lg border border-bd px-3 py-1 hover:bg-s3 disabled:opacity-40">Próxima →</button>
           </div>
         </div>
       )}

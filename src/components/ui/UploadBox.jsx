@@ -14,18 +14,18 @@ export function UploadBox({ label, sublabel, onFile, loaded, fileName, onReabrir
         onDragOver={e=>{e.preventDefault();setDrag(true)}}
         onDragLeave={()=>setDrag(false)}
         onDrop={e=>{e.preventDefault();setDrag(false);handle(e.dataTransfer.files[0])}}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
-          ${drag?'border-acc bg-acc/10':'border-bd2 bg-s1 hover:border-acc hover:bg-acc/5'}
-          ${loaded?'border-solid border-acc bg-acc/10':''}`}>
+        className={`min-h-[152px] rounded-xl border border-dashed p-5 text-center cursor-pointer transition-all
+          ${drag?'border-acc bg-acc/10 shadow-lift':'border-bd bg-s1 hover:border-acc/60 hover:bg-s2'}
+          ${loaded?'border-solid border-acc/40 bg-acc/10':''}`}>
         <input ref={ref} type="file" accept=".xlsx,.xls,.csv" className="hidden"
           onChange={e=>handle(e.target.files[0])} />
-        <div className="w-12 h-12 bg-s3 rounded-xl flex items-center justify-center mx-auto mb-3">
+        <div className="w-12 h-12 bg-s3 rounded-xl flex items-center justify-center mx-auto mb-3 ring-1 ring-bd">
           <Upload size={22} className={loaded?'text-acc':'text-tx3'} />
         </div>
-        <div className={`text-sm font-semibold mb-1 ${loaded?'text-acc':'text-tx'}`}>
+        <div className={`mx-auto mb-1 max-w-full break-words text-sm font-semibold leading-snug ${loaded?'text-acc':'text-tx'}`}>
           {loaded ? fileName : label}
         </div>
-        <div className="text-xs text-tx3">{loaded?'Clique para substituir':sublabel}</div>
+        <div className="mx-auto max-w-[220px] text-xs leading-relaxed text-tx3">{loaded?'Clique para substituir':sublabel}</div>
       </div>
       {loaded && onReabrir && (
         <button onClick={e=>{e.stopPropagation();onReabrir()}}
