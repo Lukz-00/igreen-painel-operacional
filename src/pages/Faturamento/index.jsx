@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { Download, Play, Pencil, BarChart2, X } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { UploadBox } from '../../components/ui/UploadBox'
 import { MetricCard } from '../../components/ui/MetricCard'
@@ -10,240 +9,12 @@ import { LogPanel } from '../../components/ui/LogPanel'
 import { TabBar } from '../../components/ui/TabBar'
 import { Button } from '../../components/ui/Button'
 import { ColumnMapper } from '../../components/ui/ColumnMapper'
-import { normalizarRows } from '../../utils/normalizadores'
-import { addDebugLog, addErrorLog, downloadLogs } from '../../utils/logErros'
+import { LoadingSquares } from '../../components/ui/LoadingSquares'
+import { ProcessMetaLine } from '../../components/ui/ProcessMetaLine'
+import { downloadLogs } from '../../utils/logErros'
 import { saveHistoryLog } from '../../utils/history'
 import { categoryUrl, downloadUrl, processFaturamento, uploadSpreadsheet, workbookUrl } from '../../utils/pythonApi'
 
-// ── Apara o !ref de sheets com formatação em colunas fantasma ─────────────
-// Algumas planilhas (ex: BC Memória de Cálculo) registram formatação vazia
-// em milhares de colunas (até XEY+). Isso faz o sheet_to_json criar objetos
-// gigantescos e causar OOM. Esta função relimita o !ref ao máximo real.
-function colLetterToNum(col) {
-  let n = 0
-  for (let i = 0; i < col.length; i++) {
-    n = n * 26 + (col.charCodeAt(i) - 64)
-  }
-  return n
-}
-function colNumToLetter(n) {
-  let s = ''
-  while (n > 0) {
-    const r = (n - 1) % 26
-    s = String.fromCharCode(65 + r) + s
-    n = Math.floor((n - 1) / 26)
-  }
-  return s
-}
-function trimSheetRef(ws) {
-  if (!ws || !ws['!ref']) return ws
-  try {
-    const range = XLSX.utils.decode_range(ws['!ref'])
-    let maxCol = 0
-    let maxRow = range.e.r
-
-    // Varre as chaves da sheet para achar o maior col com conteúdo real
-    for (const key of Object.keys(ws)) {
-      if (key.startsWith('!')) continue
-      const match = key.match(/^([A-Z]+)(\d+)$/)
-      if (!match) continue
-      const cellVal = ws[key]
-      // Só conta como "real" se tiver valor não-vazio
-      if (cellVal && cellVal.v !== undefined && cellVal.v !== null && cellVal.v !== '') {
-        const colNum = colLetterToNum(match[1])
-        if (colNum > maxCol) maxCol = colNum
-        const rowNum = parseInt(match[2], 10) - 1
-        if (rowNum > maxRow) maxRow = rowNum
-      }
-    }
-
-    if (maxCol === 0) return ws
-
-    // Adiciona uma margem de segurança de 5 colunas além da última com conteúdo
-    const safeMax = maxCol + 5
-    const newEnd = colNumToLetter(safeMax)
-    const startRef = XLSX.utils.encode_cell({ r: range.s.r, c: range.s.c })
-    const endRef   = newEnd + (maxRow + 1)
-    ws['!ref'] = `${startRef}:${endRef}`
-  } catch (_) {
-    // Se falhar, retorna ws original sem alterar
-  }
-  return ws
-}
-
-function lerXlsx(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    const isCSV = file.name.toLowerCase().endsWith('.csv')
-
-    reader.onload = e => {
-      try {
-        addDebugLog('Iniciando leitura de arquivo', { nome: file.name, tamanho: file.size, tipo: isCSV ? 'CSV' : 'XLSX' })
-
-        let raw = []
-
-        if (isCSV) {
-          // ── Caminho CSV: sem ArrayBuffer, sem OOM ──────────────────
-          // readAsText lê o arquivo como string UTF-8, muito mais eficiente
-          // para arquivos grandes (445k linhas, 161MB XLSX → ~30MB CSV).
-          const originalWarn = console.warn
-          console.warn = () => {}
-          const wb = XLSX.read(e.target.result, { type: 'string', cellDates: true })
-          console.warn = originalWarn
-          const ws = wb.Sheets[wb.SheetNames[0]]
-          raw = XLSX.utils.sheet_to_json(ws, { defval: '' })
-          addDebugLog('CSV lido com sucesso', { linhas: raw.length })
-        } else {
-          // ── Caminho XLSX: ArrayBuffer ──────────────────────────────
-          // Suprime warnings do XLSX durante a leitura
-          const originalWarn = console.warn
-          console.warn = () => {}
-
-          const wb = XLSX.read(e.target.result, {
-            type: 'array',
-            cellDates: true
-          })
-
-          console.warn = originalWarn
-
-          addDebugLog('Workbook lido com sucesso', {
-            sheets: wb.SheetNames,
-            sheetAtiva: wb.SheetNames[0]
-          })
-
-          let ws = wb.Sheets[wb.SheetNames[0]]
-
-          // ── Proteção contra planilhas com formatação em milhares de colunas ──
-          // (ex: BC Memória de Cálculo registra células vazias até col XEY)
-          // Aparar o !ref para as colunas que realmente têm conteúdo evita OOM.
-          ws = trimSheetRef(ws)
-
-          raw = XLSX.utils.sheet_to_json(ws, { defval: '' })
-
-          addDebugLog('sheet_to_json executado', {
-            linhasRetornadas: raw.length,
-            ehArray: Array.isArray(raw),
-            primeiroElementoTipo: raw.length > 0 ? typeof raw[0] : 'vazio'
-          })
-
-          // Se vazio, tenta releitura em modo dense (resolve !ref ausente em arquivos grandes ou gerados por sistemas externos)
-          if (raw.length === 0) {
-            addDebugLog('sheet_to_json retornou vazio, tentando leitura em modo dense')
-            const originalWarn2 = console.warn
-            console.warn = () => {}
-            const wbDense = XLSX.read(e.target.result, { type: 'array', cellDates: true, dense: true })
-            console.warn = originalWarn2
-            const wsDense = wbDense.Sheets[wbDense.SheetNames[0]]
-            raw = XLSX.utils.sheet_to_json(wsDense, { defval: '', raw: false })
-            ws = wsDense
-            addDebugLog('Leitura dense concluída', {
-              linhasRetornadas: raw.length,
-              temRef: !!wsDense['!ref']
-            })
-          }
-
-          if (raw.length === 0) {
-            addDebugLog('Leitura dense também retornou vazio, tentando leitura manual por !ref')
-            const range = ws['!ref']
-            if (!range) {
-              addErrorLog('AVISO_SEM_RANGE', 'Worksheet sem range mesmo após dense mode, retornando vazio', {})
-              resolve([])
-              return
-            }
-
-            const decoded = XLSX.utils.decode_range(range)
-            const headers = []
-            const rows = []
-
-            for (let C = decoded.s.c; C <= decoded.e.c; ++C) {
-              const cell = ws[XLSX.utils.encode_cell({ r: decoded.s.r, c: C })]
-              headers.push((cell && cell.v) ? String(cell.v).trim() : '')
-            }
-
-            addDebugLog('Headers lidos manualmente', {
-              quantidade: headers.length,
-              primeirosHeaders: headers.slice(0, 5)
-            })
-
-            for (let R = decoded.s.r + 1; R <= decoded.e.r; ++R) {
-              const row = {}
-              let hasData = false
-              for (let C = decoded.s.c; C <= decoded.e.c; ++C) {
-                const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
-                const value = (cell && cell.v) !== undefined ? cell.v : ''
-                row[headers[C - decoded.s.c]] = value instanceof Date ? value : (value || '')
-                if (value && String(value).trim()) hasData = true
-              }
-              if (hasData) rows.push(row)
-            }
-
-            addDebugLog('Leitura manual completada', { linhas: rows.length })
-            resolve(normalizarRows(rows))
-            return
-          }
-        }
-
-        if (raw.length > 0) {
-          addDebugLog('Leitura bem-sucedida', { linhas: raw.length })
-          let normalized
-          try {
-            normalized = normalizarRows(raw)
-            addDebugLog('Normalização concluída', {
-              linhasAntes: raw.length,
-              linhasDepois: normalized.length,
-              primeiraLinhaChaves: Object.keys(normalized[0] || {}).length
-            })
-          } catch (normErr) {
-            addErrorLog('ERRO_NORMALIZACAO', 'Falha ao normalizar linhas', {
-              erro: normErr.message,
-              stack: normErr.stack
-            })
-            reject(normErr)
-            return
-          }
-
-          if (!normalized || !Array.isArray(normalized)) {
-            addErrorLog('ERRO_TIPO_NORMALIZACAO', 'normalizarRows não retornou array', {
-              tipo: typeof normalized,
-              valor: String(normalized).substring(0, 100)
-            })
-            resolve([])
-            return
-          }
-
-          addDebugLog('Resolução com dados normalizados', { linhas: normalized.length })
-          resolve(normalized)
-          return
-        }
-
-        resolve([])
-
-      } catch(err) {
-        addErrorLog('ERRO_LEITURA_ARQUIVO', err.message, {
-          stack: err.stack,
-          nome: err.name
-        })
-        reject(err)
-      }
-    }
-    reader.onerror = e => {
-      addErrorLog('ERRO_FILEREADER', 'Erro ao ler arquivo do disco', {
-        erro: reader.error
-      })
-      reject(e)
-    }
-
-    // CSV → texto puro (sem ArrayBuffer = sem OOM para arquivos grandes)
-    // XLSX → ArrayBuffer (necessário para o parser binário do SheetJS)
-    if (isCSV) {
-      reader.readAsText(file, 'UTF-8')
-    } else {
-      reader.readAsArrayBuffer(file)
-    }
-  })
-}
-
-// ── Modal de Relatório: Falta na Pagadoria ──────────────────────
 function FaltaPagModal({ rows, onClose }) {
   const totalValor = rows.reduce((s, r) => {
     const v = parseFloat(String(r.Valor || '0').replace(/[^0-9.,]/g, '').replace(',', '.'))
@@ -660,6 +431,7 @@ export function Faturamento() {
         totalPag: response.counts?.totalPag || 0,
         totalRec: response.counts?.totalRec || 0,
         counts: response.counts || {},
+        meta: response.meta,
       }
       response.logs.forEach(item => addLog(item.msg, item.tipo))
       setResultado(res)
@@ -801,8 +573,11 @@ export function Faturamento() {
         </Button>
       </div>
 
+      <LoadingSquares active={processando} label="Processando cruzamento" />
+
       {/* Log */}
       <LogPanel logs={logs} />
+      <ProcessMetaLine meta={resultado?.meta} />
 
       {/* Resultado */}
       {resultado && (

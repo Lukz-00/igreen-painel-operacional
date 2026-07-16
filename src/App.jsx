@@ -1,14 +1,17 @@
+import { Suspense, lazy } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
-import { Home } from './pages/Home'
-import { Faturamento } from './pages/Faturamento'
-import { ConciliacaoBase } from './pages/ConciliacaoBase'
-import { QualidadeInjecao } from './pages/QualidadeInjecao'
-import { BoletosFaltantes } from './pages/BoletosFaltantes'
-import { Inadimplentes } from './pages/Inadimplentes'
-import { Atualizacoes } from './pages/Atualizacoes'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { LoadingSquares } from './components/ui/LoadingSquares'
+
+const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })))
+const Faturamento = lazy(() => import('./pages/Faturamento').then(module => ({ default: module.Faturamento })))
+const ConciliacaoBase = lazy(() => import('./pages/ConciliacaoBase').then(module => ({ default: module.ConciliacaoBase })))
+const QualidadeInjecao = lazy(() => import('./pages/QualidadeInjecao').then(module => ({ default: module.QualidadeInjecao })))
+const BoletosFaltantes = lazy(() => import('./pages/BoletosFaltantes').then(module => ({ default: module.BoletosFaltantes })))
+const Inadimplentes = lazy(() => import('./pages/Inadimplentes').then(module => ({ default: module.Inadimplentes })))
+const Atualizacoes = lazy(() => import('./pages/Atualizacoes').then(module => ({ default: module.Atualizacoes })))
 
 function Router() {
   const { paginaAtual } = useApp()
@@ -35,7 +38,9 @@ function Layout() {
         <Topbar />
         <main className="flex-1 overflow-y-auto">
           <ErrorBoundary>
-            <Router />
+            <Suspense fallback={<div className="p-7"><LoadingSquares active label="Carregando modulo" /></div>}>
+              <Router />
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>

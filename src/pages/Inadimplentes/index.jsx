@@ -6,6 +6,8 @@ import { TabBar } from '../../components/ui/TabBar'
 import { Button } from '../../components/ui/Button'
 import { ColumnMapper } from '../../components/ui/ColumnMapper'
 import { LogPanel } from '../../components/ui/LogPanel'
+import { LoadingSquares } from '../../components/ui/LoadingSquares'
+import { ProcessMetaLine } from '../../components/ui/ProcessMetaLine'
 import {
   downloadUrl,
   previewSpreadsheetSheet,
@@ -390,7 +392,10 @@ export function Inadimplentes() {
         </Button>
       </div>
 
+      <LoadingSquares active={processando} label="Processando inadimplentes" />
+
       <LogPanel logs={logs} />
+      <ProcessMetaLine meta={resultado?.meta} />
 
       {resultado && (
         <div className="space-y-5">

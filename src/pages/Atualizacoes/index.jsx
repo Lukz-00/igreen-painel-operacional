@@ -6,6 +6,8 @@ import { LogPanel } from '../../components/ui/LogPanel'
 import { MetricCard } from '../../components/ui/MetricCard'
 import { Button } from '../../components/ui/Button'
 import { TabBar } from '../../components/ui/TabBar'
+import { LoadingSquares } from '../../components/ui/LoadingSquares'
+import { ProcessMetaLine } from '../../components/ui/ProcessMetaLine'
 import {
   downloadUrl,
   previewSpreadsheetSheet,
@@ -227,7 +229,10 @@ export function Atualizacoes() {
         </Button>
       </div>
 
+      <LoadingSquares active={processando} label="Processando atualizacoes" />
+
       <LogPanel logs={logs} />
+      <ProcessMetaLine meta={resultado?.meta} />
 
       {resultado && (
         <div className="space-y-5">
