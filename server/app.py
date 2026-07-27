@@ -128,6 +128,7 @@ class BoletosFaltantesProcessRequest(BaseModel):
     pag: Source
     rec: Source
     gv: Source
+    fat: Source
 
 
 SHEET_KEYS = {
@@ -612,18 +613,38 @@ def process_atualizacoes(request: AtualizacoesProcessRequest) -> dict:
         pag_northen = apply_mapping(read_table(_upload_path(request.pag_northen.upload_id), request.pag_northen.sheet_name), request.pag_northen.mapping)
         pag_interna = apply_mapping(read_table(_upload_path(request.pag_interna.upload_id), request.pag_interna.sheet_name), request.pag_interna.mapping)
 
-        result = reconcile_atualizacoes(atualizacao, faturamento, rec, pag_northen, pag_interna)
+        modo = (
+            "parcelamentos"
+            if (request.atualizacao.sheet_name or "").strip().casefold() == "com p"
+            else "atualizacoes"
+        )
+        result = reconcile_atualizacoes(
+            atualizacao,
+            faturamento,
+            rec,
+            pag_northen,
+            pag_interna,
+            modo=modo,
+        )
         counts = dict(result.metrics)
-        rows = {
-            "atualizacoes": result.sheets["ATUALIZACOES"].head(PREVIEW_ROWS).to_dicts(),
-            "pendencias": result.sheets["PENDENCIAS"].head(PREVIEW_ROWS).to_dicts(),
-            "auditoria": result.sheets["AUDITORIA"].head(PREVIEW_ROWS).to_dicts(),
-        }
+        if modo == "parcelamentos":
+            rows = {
+                "parcelamentos": result.sheets["PARCELAMENTOS"].head(PREVIEW_ROWS).to_dicts(),
+                "exclusao": result.sheets["EXCLUSÃO"].head(PREVIEW_ROWS).to_dicts(),
+            }
+        else:
+            rows = {
+                "atualizacoes": result.sheets["ATUALIZACOES"].head(PREVIEW_ROWS).to_dicts(),
+                "pendencias": result.sheets["PENDENCIAS"].head(PREVIEW_ROWS).to_dicts(),
+                "auditoria": result.sheets["AUDITORIA"].head(PREVIEW_ROWS).to_dicts(),
+            }
         _write_sheet_artifacts(job_dir, result.sheets)
         runtime_meta = _runtime_meta(started_at, input_files)
-        _write_job_meta(job_dir, counts, runtime_meta, {"title": "Atualizacoes GV"})
+        workbook_title = "Parcelamentos GV" if modo == "parcelamentos" else "Atualizacoes GV"
+        _write_job_meta(job_dir, counts, runtime_meta, {"title": workbook_title})
         return {
             "job_id": job_id,
+            "mode": modo,
             "counts": counts,
             "rows": rows,
             "preview_limit": PREVIEW_ROWS,
@@ -710,20 +731,29 @@ def process_boletos_faltantes(request: BoletosFaltantesProcessRequest) -> dict:
             ("Pagadoria", request.pag),
             ("Recebiveis", request.rec),
             ("Base GV", request.gv),
+            ("Faturamento Consolidado", request.fat),
         ])
         pag = apply_mapping(read_table(_upload_path(request.pag.upload_id), request.pag.sheet_name), request.pag.mapping)
         rec = apply_mapping(read_table(_upload_path(request.rec.upload_id), request.rec.sheet_name), request.rec.mapping)
         gv = apply_mapping(read_table(_upload_path(request.gv.upload_id), request.gv.sheet_name), request.gv.mapping)
+        fat = apply_mapping(read_table(_upload_path(request.fat.upload_id), request.fat.sheet_name), request.fat.mapping)
 
-        result = reconcile_boletos_faltantes(pag, rec, gv)
+        result = reconcile_boletos_faltantes(pag, rec, gv, fat)
         counts = dict(result.metrics)
         rows = {
             "todos": result.sheets["TODOS"].head(PREVIEW_ROWS).to_dicts(),
             "faltamRecebiveis": result.sheets["FALTA RECEBIVEIS"].head(PREVIEW_ROWS).to_dicts(),
             "faltamPagadoria": result.sheets["FALTA PAGADORIA"].head(PREVIEW_ROWS).to_dicts(),
             "faltamAmbos": result.sheets["FALTA DOIS LADOS"].head(PREVIEW_ROWS).to_dicts(),
+            "erroInterno": result.sheets["ERRO INTERNO"].head(PREVIEW_ROWS).to_dicts(),
+            "erroFornecedora": result.sheets["ERRO FORNECEDORA"].head(PREVIEW_ROWS).to_dicts(),
+            "responsabilidade": result.sheets["RESPONSABILIDADE"].head(PREVIEW_ROWS).to_dicts(),
         }
-        _write_sheet_artifacts(job_dir, result.sheets)
+        export_sheets = {
+            title: frame.select([column for column in frame.columns if not column.startswith("_")])
+            for title, frame in result.sheets.items()
+        }
+        _write_sheet_artifacts(job_dir, export_sheets)
         runtime_meta = _runtime_meta(started_at, input_files)
         _write_job_meta(job_dir, counts, runtime_meta, {"title": "Boletos Faltantes"})
         return {

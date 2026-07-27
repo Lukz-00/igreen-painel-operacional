@@ -19,12 +19,15 @@ const DASH = '-'
 
 const ABAS = [
   { key: 'todos', label: 'Todos', cor: '#3b82f6' },
+  { key: 'responsabilidade', label: 'Responsabilidade', cor: '#0f766e' },
   { key: 'faltamRecebiveis', label: 'Falta nos Recebiveis', cor: '#f59e0b' },
   { key: 'faltamPagadoria', label: 'Falta na Pagadoria', cor: '#a855f7' },
   { key: 'faltamAmbos', label: 'Falta nos dois lados', cor: '#ef4444' },
+  { key: 'erroInterno', label: 'Erro Interno', cor: '#dc2626' },
+  { key: 'erroFornecedora', label: 'Erro Fornecedora', cor: '#c2410c' },
 ]
 
-const COLUNAS = [
+const COLUNAS_PADRAO = [
   'Cliente',
   'Codigo cliente',
   'CPF/CNPJ',
@@ -32,12 +35,24 @@ const COLUNAS = [
   'Numero cliente',
   'Nova instalacao',
   'Fornecedora',
+  'Região',
+  'Valor',
   'Falta nos Recebiveis',
   'Falta na Pagadoria',
   'Falta nos dois lados',
+  'Existe no Faturamento',
+  'Meses no Faturamento',
+  'Meses sem Faturamento',
+  'Arquivo de origem',
+  'Origem por competencia',
+  'Flag origem entrada',
+  'Flag responsabilidade',
+  'Responsabilidade por competencia',
   'Meses Pagadoria',
+  'Meses Pagadoria ignorados',
   'Meses Recebiveis',
   'Qtd. Pagadoria',
+  'Qtd. Pagadoria ignorados',
   'Qtd. Recebiveis',
   'Primeira competencia',
   'Ultima competencia',
@@ -45,10 +60,80 @@ const COLUNAS = [
   'Motivo',
 ]
 
+const COLUNAS_ERRO_INTERNO = [
+  'Cliente',
+  'Cliente Faturamento',
+  'Codigo cliente',
+  'Codigo cliente Faturamento',
+  'CPF/CNPJ',
+  'Instalacao',
+  'UC Faturamento',
+  'Numero cliente',
+  'Nova instalacao',
+  'Fornecedora',
+  'Região',
+  'Mes de referencia',
+  'Valor',
+  'Existe na Pagadoria',
+  'Existe nos Recebiveis',
+  'Existe no Faturamento',
+  'Faturamento elegivel',
+  'Arquivo de origem',
+  'Status Faturamento',
+  'Valor Faturamento',
+  'Vencimento Faturamento',
+  'Data emissao Faturamento',
+  'Codigo de barras Faturamento',
+  'Qtd. registros Faturamento',
+  'Possivel duplicidade Faturamento',
+  'Flag origem entrada',
+  'Flag responsabilidade',
+  'Motivo responsabilidade',
+  'Origem do match',
+  'Motivo',
+]
+
+const COLUNAS_RESPONSABILIDADE = [
+  'Cliente',
+  'Codigo cliente',
+  'CPF/CNPJ',
+  'Instalacao',
+  'Numero cliente',
+  'Nova instalacao',
+  'Fornecedora',
+  'Região',
+  'Mes de referencia',
+  'Valor',
+  'Existe na Pagadoria',
+  'Pagadoria ignorada',
+  'Status Pagadoria',
+  'Legenda Pagadoria',
+  'Existe nos Recebiveis',
+  'Status Recebiveis',
+  'Existe no Faturamento',
+  'Na cobertura do Faturamento',
+  'Faturamento elegivel',
+  'Arquivo de origem',
+  'Status Faturamento',
+  'Valor Faturamento',
+  'Vencimento Faturamento',
+  'Data emissao Faturamento',
+  'Codigo de barras Faturamento',
+  'Qtd. registros Pagadoria',
+  'Qtd. registros Recebiveis',
+  'Qtd. registros Faturamento',
+  'Possivel duplicidade Faturamento',
+  'Flag origem entrada',
+  'Flag responsabilidade',
+  'Motivo responsabilidade',
+  'Origem do match',
+]
+
 const LABELS = {
   pag: 'Pagadoria',
   gv: 'Base GV',
   rec: 'Recebiveis',
+  fat: 'Faturamento Consolidado',
 }
 
 function hora() {
@@ -70,7 +155,7 @@ function withHora(logs) {
   return (logs || []).map(log => ({ ...log, hora: log.hora || fallback }))
 }
 
-function ResultadoTable({ rows }) {
+function ResultadoTable({ rows, columns }) {
   const [pagina, setPagina] = useState(0)
   const porPagina = 120
   const totalPaginas = Math.ceil(rows.length / porPagina)
@@ -90,7 +175,7 @@ function ResultadoTable({ rows }) {
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr>
-              {COLUNAS.map(col => (
+              {columns.map(col => (
                 <th key={col} className="sticky top-0 bg-s2 border-b border-bd px-3 py-2.5 text-left text-[10px] font-semibold uppercase text-tx3 whitespace-nowrap">
                   {col}
                 </th>
@@ -100,7 +185,7 @@ function ResultadoTable({ rows }) {
           <tbody>
             {slice.map((row, index) => (
               <tr key={`${row._sortKey || row.Cliente}-${index}`} className="border-b border-bd hover:bg-s2/50 transition-colors">
-                {COLUNAS.map(col => {
+                {columns.map(col => {
                   const destaque = ['Falta nos Recebiveis', 'Falta na Pagadoria', 'Falta nos dois lados'].includes(col) && row[col] !== DASH
                   return (
                     <td key={col} className={`px-3 py-2.5 whitespace-nowrap max-w-[280px] truncate ${destaque ? 'text-warn font-semibold' : 'text-tx2'}`} title={String(row[col] ?? '')}>
@@ -127,10 +212,10 @@ function ResultadoTable({ rows }) {
 }
 
 export function BoletosFaltantes() {
-  const [uploads, setUploads] = useState({ pag: null, gv: null, rec: null })
-  const [raw, setRaw] = useState({ pag: [], gv: [], rec: [] })
-  const [headers, setHeaders] = useState({ pag: [], gv: [], rec: [] })
-  const [nomes, setNomes] = useState({ pag: '', gv: '', rec: '' })
+  const [uploads, setUploads] = useState({ pag: null, gv: null, rec: null, fat: null })
+  const [raw, setRaw] = useState({ pag: [], gv: [], rec: [], fat: [] })
+  const [headers, setHeaders] = useState({ pag: [], gv: [], rec: [], fat: [] })
+  const [nomes, setNomes] = useState({ pag: '', gv: '', rec: '', fat: '' })
   const [mappings, setMappings] = useState({})
   const [mapper, setMapper] = useState({ open: false, key: '' })
   const [logs, setLogs] = useState([])
@@ -180,7 +265,8 @@ export function BoletosFaltantes() {
     addLog(`${LABELS[key] || key}: mapeamento confirmado`, 'ok')
   }
 
-  const pronto = uploads.pag && uploads.gv && uploads.rec && mappings.pag && mappings.gv && mappings.rec
+  const pronto = uploads.pag && uploads.gv && uploads.rec && uploads.fat
+    && mappings.pag && mappings.gv && mappings.rec && mappings.fat
 
   const source = key => ({
     upload_id: uploads[key].upload_id,
@@ -199,6 +285,7 @@ export function BoletosFaltantes() {
         pag: source('pag'),
         gv: source('gv'),
         rec: source('rec'),
+        fat: source('fat'),
       })
       const res = {
         ...(response.rows || {}),
@@ -224,13 +311,16 @@ export function BoletosFaltantes() {
 
   const abasComCount = ABAS.map(aba => {
     if (!resultado) return { ...aba }
-    const count = aba.key === 'todos'
-      ? resultado.counts.clientesComPendencia
-      : aba.key === 'faltamRecebiveis'
-        ? resultado.counts.mesesFaltamRecebiveis
-        : aba.key === 'faltamPagadoria'
-          ? resultado.counts.mesesFaltamPagadoria
-          : resultado.counts.mesesFaltamAmbos
+    const countKeys = {
+      todos: 'clientesComPendencia',
+      responsabilidade: 'boletosAuditados',
+      faltamRecebiveis: 'mesesFaltamRecebiveis',
+      faltamPagadoria: 'mesesFaltamPagadoria',
+      faltamAmbos: 'mesesFaltamAmbos',
+      erroInterno: 'errosInternos',
+      erroFornecedora: 'errosFornecedora',
+    }
+    const count = resultado.counts[countKeys[aba.key]]
     return { ...aba, count: count || 0 }
   })
 
@@ -242,14 +332,20 @@ export function BoletosFaltantes() {
     return rows.filter(row => (row._search || normText(Object.values(row).join(' '))).includes(q))
   }, [resultado, abaAtiva, busca])
 
+  const colunasAtivas = abaAtiva === 'erroInterno'
+    ? COLUNAS_ERRO_INTERNO
+    : ['responsabilidade', 'erroFornecedora'].includes(abaAtiva)
+      ? COLUNAS_RESPONSABILIDADE
+      : COLUNAS_PADRAO
+
   return (
     <div className="p-7 space-y-5">
       <ColumnMapper
         open={mapper.open}
         raw={raw[mapper.key] || []}
         headers={headers[mapper.key] || []}
-        schemaKey={mapper.key === 'pag' ? 'boletos_pag' : mapper.key === 'gv' ? 'boletos_gv' : 'boletos_rec'}
-        title={mapper.key === 'pag' ? 'Mapear colunas - Pagadoria' : mapper.key === 'gv' ? 'Mapear colunas - Base GV' : 'Mapear colunas - Recebiveis'}
+        schemaKey={mapper.key === 'pag' ? 'boletos_pag' : mapper.key === 'gv' ? 'boletos_gv' : mapper.key === 'rec' ? 'boletos_rec' : 'boletos_fat'}
+        title={mapper.key === 'pag' ? 'Mapear colunas - Pagadoria' : mapper.key === 'gv' ? 'Mapear colunas - Base GV' : mapper.key === 'rec' ? 'Mapear colunas - Recebiveis' : 'Mapear colunas - Faturamento Consolidado'}
         fileName={nomes[mapper.key]}
         savedMapping={mappings[mapper.key]}
         onConfirm={handleMapperConfirm}
@@ -258,10 +354,10 @@ export function BoletosFaltantes() {
 
       <div className="pb-5 border-b border-bd">
         <h1 className="text-xl font-bold text-tx mb-1">Boletos Faltantes</h1>
-        <p className="text-sm text-tx3">Cruza Pagadoria, Recebiveis e Base GV por cliente e competencia para encontrar lacunas de boletos.</p>
+        <p className="text-sm text-tx3">Cruza Pagadoria, Recebiveis, Base GV e Faturamento Consolidado por cliente e competencia para rastrear a origem e separar responsabilidade interna e da fornecedora.</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <UploadSlot
           label="Base Pagadoria"
           sublabel="Planilha de faturas da fornecedora"
@@ -286,12 +382,20 @@ export function BoletosFaltantes() {
           onFile={handleFile('rec')}
           onReabrir={() => reabrirMapper('rec')}
         />
+        <UploadSlot
+          label="Faturamento Consolidado"
+          sublabel="PLANILHA_UNIFICADA_CONSOLIDADA"
+          loaded={!!uploads.fat}
+          fileName={nomes.fat}
+          onFile={handleFile('fat')}
+          onReabrir={() => reabrirMapper('fat')}
+        />
       </div>
 
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-tx3">
           <FileSearch size={14} className="text-acc" />
-          <span>Obrigatorio carregar as 3 bases para manter a mesma ponte usada no cruzamento da Pagadoria.</span>
+          <span>Obrigatorio carregar as 4 bases; a Base GV continua sendo a ponte entre todas as fontes.</span>
         </div>
         <Button variant="primary" onClick={processar} disabled={!pronto || processando}>
           <Play size={14} />
@@ -306,12 +410,16 @@ export function BoletosFaltantes() {
 
       {resultado && (
         <div className="space-y-5">
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <MetricCard label="Clientes analisados" value={resultado.counts.clientesAnalisados || 0} sub="com boletos nos dois lados" color="#3b82f6" />
+            <MetricCard label="Boletos auditados" value={resultado.counts.boletosAuditados || 0} sub="cliente e competencia" color="#0f766e" onClick={() => setAbaAtiva('responsabilidade')} />
             <MetricCard label="Clientes com pendencia" value={resultado.counts.clientesComPendencia || 0} sub="qualquer lacuna" color="#ef4444" onClick={() => setAbaAtiva('todos')} />
             <MetricCard label="Falta nos Recebiveis" value={resultado.counts.mesesFaltamRecebiveis || 0} sub="meses da Pagadoria sem RCB" color="#f59e0b" onClick={() => setAbaAtiva('faltamRecebiveis')} />
             <MetricCard label="Falta na Pagadoria" value={resultado.counts.mesesFaltamPagadoria || 0} sub="meses do RCB sem Pagadoria" color="#a855f7" onClick={() => setAbaAtiva('faltamPagadoria')} />
             <MetricCard label="Falta nos dois lados" value={resultado.counts.mesesFaltamAmbos || 0} sub="lacunas internas" color="#ef4444" onClick={() => setAbaAtiva('faltamAmbos')} />
+            <MetricCard label="Erro interno" value={resultado.counts.errosInternos || 0} sub="no faturamento, ausente no RCB" color="#dc2626" onClick={() => setAbaAtiva('erroInterno')} />
+            <MetricCard label="Erro da fornecedora" value={resultado.counts.errosFornecedora || 0} sub="divergencia na Pagadoria ou no envio" color="#c2410c" onClick={() => setAbaAtiva('erroFornecedora')} />
+            <MetricCard label="Revisao manual" value={resultado.counts.revisaoResponsabilidade || 0} sub="evidencia insuficiente ou nao elegivel" color="#64748b" onClick={() => setAbaAtiva('responsabilidade')} />
           </div>
 
           {((resultado.counts.clientesSoPagadoria || 0) > 0 || (resultado.counts.clientesSoRecebiveis || 0) > 0) && (
@@ -343,7 +451,7 @@ export function BoletosFaltantes() {
             <div className="px-4 pt-4">
               <TabBar abas={abasComCount} abaAtiva={abaAtiva} onTab={setAbaAtiva} />
             </div>
-            <ResultadoTable rows={rowsAtivas} />
+            <ResultadoTable rows={rowsAtivas} columns={colunasAtivas} />
           </div>
 
           <div className="flex gap-3 rounded-xl border border-warn/30 bg-warn/10 p-4 text-sm text-tx2">
@@ -351,7 +459,7 @@ export function BoletosFaltantes() {
             <div>
               <div className="font-semibold text-tx mb-1">Observacao sobre a leitura</div>
               <div>
-                A tela exibe uma previsualizacao dos primeiros registros retornados pelo backend. A exportacao em Excel continua completa e compara somente clientes que possuem boletos nos dois lados, usando a Base GV como ponte por codigo, instalacao, nova instalacao ou numero cliente.
+                A tela exibe uma previsualizacao dos primeiros registros retornados pelo backend. A exportacao em Excel continua completa. A aba Responsabilidade cruza cada competencia com as tres fontes; registros sem evidencia suficiente ou com Faturamento nao elegivel ficam em Revisar e nao sao atribuidos automaticamente.
               </div>
             </div>
           </div>
