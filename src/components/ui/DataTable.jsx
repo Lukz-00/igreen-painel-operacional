@@ -1,27 +1,27 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 
-export function DataTable({ rows = [], maxRows = 300 }) {
+export function DataTable({ rows = [], maxRows = 100 }) {
   const [pagina,  setPagina]  = useState(0)
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
 
-  if (!rows.length) return (
-    <div className="rounded-xl border border-dashed border-bd bg-s1 py-12 text-center text-sm text-tx3">Nenhum registro encontrado.</div>
-  )
-
-  const headers = Object.keys(rows[0])
+  const headers = useMemo(() => Object.keys(rows[0] || {})
     .filter(k => !k.startsWith('_'))
-    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR')), [rows])
 
-  const sorted = sortCol
+  const sorted = useMemo(() => (sortCol
     ? [...rows].sort((a, b) => {
         const va = String(a[sortCol] ?? '')
         const vb = String(b[sortCol] ?? '')
         const cmp = va.localeCompare(vb, 'pt-BR', { numeric: true, sensitivity: 'base' })
         return sortDir === 'asc' ? cmp : -cmp
       })
-    : rows
+    : rows), [rows, sortCol, sortDir])
+
+  if (!rows.length) return (
+    <div className="rounded-xl border border-dashed border-bd bg-s1 py-12 text-center text-sm text-tx3">Nenhum registro encontrado.</div>
+  )
 
   const slice      = sorted.slice(pagina * maxRows, (pagina + 1) * maxRows)
   const totalPags  = Math.ceil(rows.length / maxRows)

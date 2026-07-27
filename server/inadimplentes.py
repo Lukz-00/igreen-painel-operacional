@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import date
@@ -238,7 +239,6 @@ def _date_month_index(value: Any) -> int | None:
     if hasattr(value, "year") and hasattr(value, "month"):
         return int(value.year) * 12 + int(value.month)
     text = str(value).strip()
-    import re
 
     iso = re.match(r"^(\d{4})-(\d{2})-\d{2}", text)
     if iso:

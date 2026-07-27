@@ -6,6 +6,8 @@ import { LogPanel } from '../../components/ui/LogPanel'
 import { MetricCard } from '../../components/ui/MetricCard'
 import { Button } from '../../components/ui/Button'
 import { TabBar } from '../../components/ui/TabBar'
+import { LoadingSquares } from '../../components/ui/LoadingSquares'
+import { ProcessMetaLine } from '../../components/ui/ProcessMetaLine'
 import {
   downloadUrl,
   previewSpreadsheetSheet,
@@ -15,17 +17,22 @@ import {
 } from '../../utils/pythonApi'
 
 const FONTES = {
-  atualizacao: { label: 'Atualizacoes GV', sub: 'Aba Para atualizar', schema: 'atu_update' },
+  atualizacao: { label: 'Solicitacoes GV', sub: 'Selecione SEM P ou COM P', schema: 'atu_update' },
   faturamento: { label: 'Faturamento Consolidado', sub: 'PLANILHA_UNIFICADA_CONSOLIDADA', schema: 'atu_faturamento' },
   rec: { label: 'Recebiveis', sub: 'Busca IDRCB antigo', schema: 'atu_rec' },
   pag_northen: { label: 'Pagadoria Northen', sub: 'Fallback Northen', schema: 'atu_pag' },
   pag_interna: { label: 'Pagadoria Interna', sub: 'Fallback interna / IUGU', schema: 'atu_pag' },
 }
 
-const ABAS = [
+const ABAS_ATUALIZACOES = [
   { key: 'atualizacoes', label: 'Atualizacoes', cor: '#22c55e' },
   { key: 'pendencias', label: 'Pendencias', cor: '#f59e0b' },
   { key: 'auditoria', label: 'Auditoria', cor: '#3b82f6' },
+]
+
+const ABAS_PARCELAMENTOS = [
+  { key: 'parcelamentos', label: 'Parcelamentos', cor: '#22c55e' },
+  { key: 'exclusao', label: 'Exclusao', cor: '#ef4444' },
 ]
 
 const COLUNAS = {
@@ -36,6 +43,12 @@ const COLUNAS = {
   ],
   pendencias: ['IDRCB', 'COD. Cliente', 'NOME DO CLIENTE', 'UNIDADE CONSUMIDORA (UC)', 'MÊS DE REFERÊNCIA', 'Criticos faltantes', 'Match Recebiveis', 'Match Faturamento', 'Match Pagadoria Northen', 'Match Pagadoria Interna'],
   auditoria: ['IDRCB', 'COD. Cliente', 'NOME DO CLIENTE', 'UNIDADE CONSUMIDORA (UC)', 'MÊS DE REFERÊNCIA', 'Fonte IDRCB', 'Match Recebiveis', 'Match Faturamento', 'Match Pagadoria Northen', 'Match Pagadoria Interna', 'Criticos faltantes'],
+  parcelamentos: [
+    'FAVORECIDO', 'COD. Cliente', 'DISTRIBUIDORA', 'NOME DO CLIENTE',
+    'UNIDADE CONSUMIDORA (UC)', 'MÊS DE REFERÊNCIA', 'VALOR DA FATURA (R$)',
+    'CÓDIGO DE BARRAS', 'NOVA DATA DE VENCIMENTO', 'ID Cobrança', 'IUGU',
+  ],
+  exclusao: ['IDRCB'],
 }
 
 function normText(value) {
@@ -51,7 +64,10 @@ function normText(value) {
 function escolherAbaPadrao(key, sheets = [], fallback = '') {
   const normalized = sheets.map(name => ({ name, lower: String(name).toLowerCase() }))
   if (key === 'atualizacao') {
-    return normalized.find(s => s.lower.includes('para atualizar'))?.name || fallback
+    return normalized.find(s => s.lower.includes('para atualizar'))?.name
+      || normalized.find(s => s.lower.trim() === 'sem p')?.name
+      || normalized.find(s => s.lower.includes('atualizações e parcelamentos'))?.name
+      || fallback
   }
   if (key === 'faturamento') {
     return normalized.find(s => s.lower.includes('unificada'))?.name
@@ -154,7 +170,13 @@ export function Atualizacoes() {
       setResultado(response)
       setJobId(response.job_id)
       setLogs(addHora(response.logs))
-      setAbaAtiva((response.counts?.linhasComPendencias || 0) > 0 ? 'pendencias' : 'atualizacoes')
+      setAbaAtiva(
+        response.mode === 'parcelamentos'
+          ? 'parcelamentos'
+          : (response.counts?.linhasComPendencias || 0) > 0
+            ? 'pendencias'
+            : 'atualizacoes',
+      )
     } catch (err) {
       setLogs([{ msg: `Erro: ${err.message}`, tipo: 'err', hora: new Date().toLocaleTimeString('pt-BR') }])
     } finally {
@@ -162,14 +184,20 @@ export function Atualizacoes() {
     }
   }
 
-  const abasComCount = ABAS.map(aba => ({
+  const modoParcelamentos = resultado?.mode === 'parcelamentos'
+  const abasResultado = modoParcelamentos ? ABAS_PARCELAMENTOS : ABAS_ATUALIZACOES
+  const abasComCount = abasResultado.map(aba => ({
     ...aba,
     count: resultado
-      ? aba.key === 'atualizacoes'
-        ? resultado.counts?.totalAtualizacoes || 0
-        : aba.key === 'pendencias'
-          ? resultado.counts?.linhasComPendencias || 0
-          : resultado.counts?.totalAtualizacoes || 0
+      ? aba.key === 'parcelamentos'
+        ? resultado.counts?.totalParcelamentos || 0
+        : aba.key === 'exclusao'
+          ? resultado.counts?.idrcbParaExclusao || 0
+          : aba.key === 'atualizacoes'
+            ? resultado.counts?.totalAtualizacoes || 0
+            : aba.key === 'pendencias'
+              ? resultado.counts?.linhasComPendencias || 0
+              : resultado.counts?.totalAtualizacoes || 0
       : undefined,
   }))
 
@@ -195,7 +223,7 @@ export function Atualizacoes() {
 
       <div className="pb-5 border-b border-bd">
         <h1 className="text-xl font-bold text-tx mb-1">Atualizacoes</h1>
-        <p className="text-sm text-tx3">Monta a planilha de boletos atualizados usando Atualizacoes GV, faturamento consolidado, Recebiveis e Pagadorias Northen/Interna.</p>
+        <p className="text-sm text-tx3">Monta Atualizacoes pela aba SEM P ou separa Parcelamentos e IDs de exclusao pela aba COM P.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -219,7 +247,11 @@ export function Atualizacoes() {
       <div className="flex items-center justify-between gap-4 bg-bg2 border border-bd rounded-xl p-4">
         <div className="flex items-center gap-3">
           <FileSpreadsheet size={15} className="text-acc" />
-          <span className="text-xs text-tx3">A planilha Atualizacoes tem prioridade; as outras bases completam apenas campos faltantes.</span>
+          <span className="text-xs text-tx3">
+            {String(selectedSheets.atualizacao || '').trim().toLowerCase() === 'com p'
+              ? 'COM P: o valor vem dos 10 digitos finais do codigo de barras e os IDRCBs seguem para exclusao.'
+              : 'A planilha de solicitacoes tem prioridade; as outras bases completam apenas campos faltantes.'}
+          </span>
         </div>
         <Button variant="primary" onClick={processar} disabled={!pronto || processando}>
           <Play size={14} />
@@ -227,17 +259,33 @@ export function Atualizacoes() {
         </Button>
       </div>
 
+      <LoadingSquares active={processando} label="Processando atualizacoes" />
+
       <LogPanel logs={logs} />
+      <ProcessMetaLine meta={resultado?.meta} />
 
       {resultado && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
-            <MetricCard label="Atualizacoes" value={resultado.counts?.totalAtualizacoes || 0} sub="linhas analisadas" color="#22c55e" onClick={() => setAbaAtiva('atualizacoes')} />
-            <MetricCard label="Prontas" value={resultado.counts?.linhasProntas || 0} sub="criticos preenchidos" color="#22c55e" />
-            <MetricCard label="Pendencias" value={resultado.counts?.linhasComPendencias || 0} sub="criticos faltando" color="#f59e0b" onClick={() => setAbaAtiva('pendencias')} />
-            <MetricCard label="Recebiveis" value={resultado.counts?.encontradasRecebiveis || 0} sub="IDRCB localizado" color="#3b82f6" />
-            <MetricCard label="Faturamento" value={resultado.counts?.encontradasFaturamento || 0} sub="consolidada" color="#a855f7" />
-            <MetricCard label="Pagadorias" value={(resultado.counts?.encontradasPagadoriaNorthen || 0) + (resultado.counts?.encontradasPagadoriaInterna || 0)} sub="Northen + Interna" color="#f97316" />
+            {modoParcelamentos ? (
+              <>
+                <MetricCard label="Parcelamentos" value={resultado.counts?.totalParcelamentos || 0} sub="boletos gerados" color="#22c55e" onClick={() => setAbaAtiva('parcelamentos')} />
+                <MetricCard label="IDs para exclusao" value={resultado.counts?.idrcbParaExclusao || 0} sub="boletos antigos" color="#ef4444" onClick={() => setAbaAtiva('exclusao')} />
+                <MetricCard label="Valores do boleto" value={resultado.counts?.valoresDerivadosCodigoBarras || 0} sub="codigo de barras" color="#22c55e" />
+                <MetricCard label="Sem IDRCB" value={resultado.counts?.semIdrcbParaExclusao || 0} sub="revisar exclusao" color="#f59e0b" />
+                <MetricCard label="Recebiveis" value={resultado.counts?.encontradasRecebiveis || 0} sub="IDRCB localizado" color="#3b82f6" />
+                <MetricCard label="Faturamento" value={resultado.counts?.encontradasFaturamento || 0} sub="consolidada" color="#a855f7" />
+              </>
+            ) : (
+              <>
+                <MetricCard label="Atualizacoes" value={resultado.counts?.totalAtualizacoes || 0} sub="linhas analisadas" color="#22c55e" onClick={() => setAbaAtiva('atualizacoes')} />
+                <MetricCard label="Prontas" value={resultado.counts?.linhasProntas || 0} sub="criticos preenchidos" color="#22c55e" />
+                <MetricCard label="Pendencias" value={resultado.counts?.linhasComPendencias || 0} sub="criticos faltando" color="#f59e0b" onClick={() => setAbaAtiva('pendencias')} />
+                <MetricCard label="Recebiveis" value={resultado.counts?.encontradasRecebiveis || 0} sub="IDRCB localizado" color="#3b82f6" />
+                <MetricCard label="Faturamento" value={resultado.counts?.encontradasFaturamento || 0} sub="consolidada" color="#a855f7" />
+                <MetricCard label="Pagadorias" value={(resultado.counts?.encontradasPagadoriaNorthen || 0) + (resultado.counts?.encontradasPagadoriaInterna || 0)} sub="Northen + Interna" color="#f97316" />
+              </>
+            )}
           </div>
 
           <div className="rounded-xl border border-bd bg-s1 overflow-hidden">

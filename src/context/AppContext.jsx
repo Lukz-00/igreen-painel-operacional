@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { INITIAL_SIDEBAR_STATE, VALID_PAGE_IDS } from '../config/navigation'
 
 const Ctx = createContext(null)
+const DEFAULT_PAGE = 'home'
 
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'light'
@@ -9,9 +11,19 @@ function getInitialTheme() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+function normalizePage(pagina) {
+  return VALID_PAGE_IDS.has(pagina) ? pagina : DEFAULT_PAGE
+}
+
+function getPageFromHash() {
+  if (typeof window === 'undefined') return DEFAULT_PAGE
+  const hashPage = window.location.hash.replace(/^#\/?/, '').trim()
+  return normalizePage(hashPage || DEFAULT_PAGE)
+}
+
 export function AppProvider({ children }) {
-  const [paginaAtual, setPaginaAtual] = useState('home')
-  const [sidebarAberto, setSidebarAberto] = useState({ injecao: true, financeiro: true })
+  const [paginaAtual, setPaginaAtual] = useState(getPageFromHash)
+  const [sidebarAberto, setSidebarAberto] = useState(INITIAL_SIDEBAR_STATE)
   const [tema, setTema] = useState(getInitialTheme)
 
   useEffect(() => {
@@ -19,7 +31,20 @@ export function AppProvider({ children }) {
     window.localStorage.setItem('igreen-theme', tema)
   }, [tema])
 
-  const navegarPara = (pagina) => setPaginaAtual(pagina)
+  useEffect(() => {
+    const handleHashChange = () => setPaginaAtual(getPageFromHash())
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  const navegarPara = (pagina) => {
+    const nextPage = normalizePage(pagina)
+    setPaginaAtual(nextPage)
+    if (typeof window !== 'undefined') {
+      const nextHash = `#${nextPage}`
+      if (window.location.hash !== nextHash) window.location.hash = nextHash
+    }
+  }
   const toggleGrupo = (id) => setSidebarAberto(prev => ({ ...prev, [id]: !prev[id] }))
   const alternarTema = () => setTema(prev => prev === 'dark' ? 'light' : 'dark')
 

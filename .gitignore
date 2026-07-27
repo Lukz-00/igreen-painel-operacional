@@ -26,3 +26,8 @@ __pycache__/
 /src/necessario/
 /src/Analisar/
 /src/divergentes_resultado.*
+/outputs/
+/docs/pop-operacional/rendered*/
+
+# Utilitarios locais/privados, fora do repositorio
+/local-only/

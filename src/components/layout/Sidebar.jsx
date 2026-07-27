@@ -1,35 +1,7 @@
-import { BarChart2, ChevronRight, Home, Leaf, TrendingUp } from 'lucide-react'
+import { ChevronRight, Leaf } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-
-const MENU = [
-  { id: 'home', label: 'Visao Geral', icon: Home, tipo: 'item' },
-  { tipo: 'divider' },
-  {
-    id: 'injecao',
-    label: 'Conciliacao de Base',
-    icon: BarChart2,
-    tipo: 'grupo',
-    filhos: [
-      { id: 'ivolt-gv', label: 'GV' },
-      { id: 'ivolt-sunne', label: 'SUNNE' },
-      { id: 'ivolt-edp', label: 'EDP' },
-      { id: 'ivolt-sunclick', label: 'Sunclick' },
-    ],
-  },
-  {
-    id: 'financeiro',
-    label: 'Operacoes Financeiras',
-    icon: TrendingUp,
-    tipo: 'grupo',
-    filhos: [
-      { id: 'faturamento', label: 'Pagadoria' },
-      { id: 'atualizacoes', label: 'Atualizacoes', sub: 'Boletos atualizados' },
-      { id: 'inadimplentes', label: 'Inadimplentes', sub: 'Vencidos x atraso faturamento' },
-      { id: 'boletos-faltantes', label: 'Boletos Faltantes', sub: 'Lacunas por UC e mes' },
-      { id: 'qualidade-injecao', label: 'Qualidade de Injecao', sub: 'Indice por UC e mes' },
-    ],
-  },
-]
+import { MENU } from '../../config/navigation'
+import { SIDEBAR_USER_NAME, SIDEBAR_USER_ROLE } from '../../config/user'
 
 export function Sidebar() {
   const { paginaAtual, navegarPara, sidebarAberto, toggleGrupo } = useApp()
@@ -124,8 +96,8 @@ export function Sidebar() {
 
       <div className="border-t border-bd px-4 py-4">
         <div className="rounded-xl border border-bd bg-s2 px-3 py-3">
-          <div className="text-xs font-semibold text-tx">Lucas Coutinho</div>
-          <div className="mt-0.5 text-[10px] text-tx3">iGreen Energy - Emile Angelim</div>
+          <div className="text-xs font-semibold text-tx">{SIDEBAR_USER_NAME}</div>
+          <div className="mt-0.5 text-[10px] text-tx3">{SIDEBAR_USER_ROLE}</div>
         </div>
       </div>
     </aside>

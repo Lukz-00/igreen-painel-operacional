@@ -53,10 +53,61 @@ const SCHEMAS = {
     { key:'fornecedora',      label:'Fornecedora',              required:false, aliases:['Fornecedora','fornecedora','Organizacao'] },
     { key:'concessionaria',   label:'Concessionaria',           required:false, aliases:['Concessionaria','Distribuidora','distribuidora'] },
   ],
+  qualidade_edp_pag: [
+    { key:'cobranca',       label:'Cobranca / ID',             required:false, aliases:['Cobranca EDP','CobranÃ§a EDP','Cobranca','ID da Cobranca','ID da CobranÃ§a'] },
+    { key:'cliente',        label:'Cliente',                   required:false, aliases:['Cliente','Nome','Favorecido','Consorciado'] },
+    { key:'cpf',            label:'CPF / CNPJ',                required:false, aliases:['CPF / CNPJ','CPF/CNPJ','CPF','CNPJ','documento'] },
+    { key:'valor',          label:'Valor do Boleto',           required:true,  aliases:['Valor do Boleto (R$)','Valor do Boleto','Valor da Fatura','Valor fatura','valorapagar'] },
+    { key:'valor_pago',     label:'Valor Pago',                required:false, aliases:['Valor Pago (R$)','Valor Pago','Valor pago pelo cliente (R$)'] },
+    { key:'emissao',        label:'Data de Emissao',           required:false, aliases:['Data de EmissÃ£o da CobranÃ§a','Data de Emissao da Cobranca','Data de Emissao','Emissao da fatura'] },
+    { key:'instalacao',     label:'Numero da Instalacao',      required:true,  aliases:['NÃºmero da InstalaÃ§Ã£o','Numero da Instalacao','NÂº da InstalaÃ§Ã£o','InstalaÃ§Ã£o','Instalacao','UC','numinstalacao'] },
+    { key:'distribuidora',  label:'Distribuidora',             required:true,  aliases:['Distribuidora','Concessionaria','ConcessionÃ¡ria'] },
+    { key:'compensado',     label:'Energia Compensada',        required:true,  aliases:['Energia Compensada (kWh)','Energia Compensada','energiacompensada'] },
+    { key:'saldo',          label:'Saldo acumulado',           required:false, aliases:['Saldo acumulado (kWh)','Saldo acumulado','energiaacumulada'] },
+    { key:'status',         label:'Status',                    required:false, aliases:['Status','Status Boleto','Status fatura'] },
+    { key:'mes',            label:'Mes de Referencia',         required:true,  aliases:['MÃªs de ReferÃªncia','Mes de Referencia','Mes Referencia','MÃªs','Mes','Data Referencia','mesreferencia'] },
+    { key:'consumo',        label:'Consumo Total',             required:true,  aliases:['Consumo Total (kWh)','Consumo Total','Consumo Mes','Consumo'] },
+    { key:'vencimento',     label:'Vencimento',                required:false, aliases:['Data de Vencimento da CobranÃ§a','Data de Vencimento','Vencimento fatura'] },
+    { key:'pagamento',      label:'Data de Pagamento',         required:false, aliases:['Data de Pagamento da CobranÃ§a','Data de Pagamento','Data pagamento'] },
+    { key:'codbar',         label:'Linha Digitavel',           required:false, aliases:['Linha DigitÃ¡vel','Linha Digitavel','Codigo de barras','CÃ³digo de barras'] },
+    { key:'disponibilidade', label:'Disponibilidade',          required:false, aliases:['Disponibilidade','Dosponibilidade'] },
+  ],
+  qualidade_edp_cli: [
+    { key:'codigo_cliente',  label:'Codigo Cliente',           required:false, aliases:['cÃ³digo','codigo','Codigo','CÃ³digo','Codigo Cliente'] },
+    { key:'nome',            label:'Nome do Cliente',          required:false, aliases:['nome','Nome','Cliente','cliente'] },
+    { key:'instalacao',      label:'Instalacao',               required:true,  aliases:['instalacao','Instalacao','InstalaÃ§Ã£o','UC'] },
+    { key:'nova_instalacao', label:'Nova Instalacao',          required:false, aliases:['Nova instalacao','Nova Instalacao','Nova InstalaÃ§Ã£o','nova_instalacao'] },
+    { key:'numero_cliente',  label:'Numero Cliente',           required:false, aliases:['numero cliente','Numero Cliente','NÃºmero Cliente','numcliente'] },
+    { key:'media_consumo',   label:'Media Consumo',            required:true,  aliases:['mÃ©dia consumo','media consumo','Media Consumo','MÃ©dia Consumo','media_consumo_contratada'] },
+    { key:'cpf',             label:'CPF',                      required:false, aliases:['cpf','CPF','CPF/CNPJ'] },
+    { key:'cnpj',            label:'CNPJ',                     required:false, aliases:['cnpj','CNPJ'] },
+    { key:'classificacao',   label:'Classificacao',            required:true,  aliases:['classificacao','Classificacao','ClassificaÃ§Ã£o','Classe'] },
+    { key:'fornecedora',     label:'Fornecedora',              required:false, aliases:['fornecedora','Fornecedora'] },
+    { key:'regiao',          label:'Regiao / Distribuidora',   required:false, aliases:['regiÃ£o','regiao','Regiao','RegiÃ£o','Distribuidora','Concessionaria'] },
+  ],
+  qualidade_edp_rec: [
+    { key:'fornecedora',          label:'Fornecedora',               required:false, aliases:['fornecedora','Fornecedora'] },
+    { key:'codigo_cliente',       label:'Codigo Cliente',            required:false, aliases:['codigo cliente','Codigo Cliente','idcliente','cod_cliente'] },
+    { key:'cliente',              label:'Cliente',                   required:false, aliases:['cliente','Cliente','Nome'] },
+    { key:'valor',                label:'Valor a Pagar',             required:true,  aliases:['valor a pagar','valorapagar','Valor A Pagar','Valor'] },
+    { key:'mes',                  label:'Data Referencia',           required:true,  aliases:['data referencia','Data Referencia','mesreferencia','Mes Referencia'] },
+    { key:'pagamento',            label:'Data Pagamento',            required:false, aliases:['data pagamento','dtpagamento','Data Pagamento'] },
+    { key:'vencimento',           label:'Data Vencimento',           required:false, aliases:['data vencimento','dtvencimento','Data Vencimento'] },
+    { key:'url',                  label:'URL Boleto',                required:false, aliases:['url boleto','urlboleto','Url Boleto'] },
+    { key:'instalacao',           label:'Instalacao',                required:true,  aliases:['instalaÃ§Ã£o','instalacao','Instalacao','numinstalacao','UC'] },
+    { key:'distribuidora',        label:'Concessionaria',            required:false, aliases:['Concessionaria','concessionaria','Distribuidora'] },
+    { key:'cpf',                  label:'CPF',                       required:false, aliases:['cpf','CPF','CPF/CNPJ'] },
+    { key:'cnpj',                 label:'CNPJ',                      required:false, aliases:['cnpj','CNPJ'] },
+    { key:'valor_distribuidora',  label:'Valor Simulado Distrib.',   required:false, aliases:['nvalordistribuidora','Valor Simulado Distribuidora','Valor Distribuidora'] },
+    { key:'status',               label:'Status',                    required:false, aliases:['status','Status','status_financeiro'] },
+    { key:'idrcb',                label:'IDRCB',                     required:false, aliases:['idrcb','IDRCB','Idrcb'] },
+    { key:'numero_cliente',       label:'Numero Cliente',            required:false, aliases:['numero cliente','Numero Cliente','numcliente'] },
+  ],
   boletos_pag: [
     { key:'instalacao',    label:'Instalacao / UC',       required:true,  aliases:['Instalacao','instalacao','Numero de instalacao','Numero instalacao','numinstalacao','num_instalacao','UC'] },
     { key:'mes',           label:'Mes de Referencia',     required:true,  aliases:['Mes referencia','Mes de referencia','Mes','Data Referencia','mes_referencia','mesreferencia','DATA DO DOCUMENTO'] },
     { key:'status',        label:'Status da Fatura',      required:false, aliases:['Status fatura','StatusFatura','Status','status','Situacao do recebimento'] },
+    { key:'legenda',       label:'Legenda',               required:false, aliases:['Legenda','legenda','Observacao','Observacao da fatura'] },
     { key:'valor',         label:'Valor da Fatura',       required:false, aliases:['Valor fatura','Valor da Fatura','Valor total (R$)','Valor','valorapagar'] },
     { key:'vencimento',    label:'Vencimento',            required:false, aliases:['Vencimento fatura','Data Vencimento','Data de vencimento','dtvencimento'] },
     { key:'cliente',       label:'Cliente / Nome',        required:false, aliases:['Favorecido','Consorciado','Nome','Cliente','nome_cliente','Nome do Cliente'] },
@@ -70,7 +121,8 @@ const SCHEMAS = {
     { key:'nova_instalacao', label:'Nova Instalacao',      required:false, aliases:['Nova instalacao','Nova Instalacao','nova_instalacao'] },
     { key:'numero_cliente',  label:'Numero Cliente',       required:false, aliases:['numero cliente','Numero Cliente','NumeroCliente','N Cliente','UC'] },
     { key:'cpf',             label:'CPF / CNPJ',           required:false, aliases:['cpf','CPF','CPF/CNPJ','cnpj','CNPJ'] },
-    { key:'fornecedora',     label:'Fornecedora / Regiao', required:false, aliases:['fornecedora','Fornecedora','regiao','Regiao','regiao/fornecedora'] },
+    { key:'fornecedora',     label:'Fornecedora',          required:false, aliases:['fornecedora','Fornecedora','regiao/fornecedora'] },
+    { key:'regiao',          label:'Regiao',               required:false, aliases:['regiao','Regiao','Região','regional','Regional','regiao/fornecedora'] },
     { key:'status',          label:'Status',               required:false, aliases:['Status','status','Jornada Status','Status Financeiro'] },
   ],
   boletos_rec: [
@@ -85,6 +137,21 @@ const SCHEMAS = {
     { key:'cpf',            label:'CPF / CNPJ',            required:false, aliases:['cpf','CPF','CPF/CNPJ','cnpj','CNPJ'] },
     { key:'fornecedora',    label:'Fornecedora',           required:false, aliases:['fornecedora','Fornecedora','cfornecedora'] },
     { key:'concessionaria', label:'Concessionaria',        required:false, aliases:['Concessionaria','concessionaria','Distribuidora'] },
+  ],
+  boletos_fat: [
+    { key:'instalacao',     label:'Instalacao / UC',       required:true,  aliases:['UNIDADE CONSUMIDORA (UC)','UNIDADE CONSUMIDORA','UC','UC.1','INSTALATIONNUMBER','Instalacao','instalacao','num_instalacao'] },
+    { key:'mes',            label:'Competencia / Mes',     required:true,  aliases:['MES DE REFERENCIA','Mes de referencia','Mes referencia','REFER'] },
+    { key:'arquivo_origem', label:'Arquivo de Origem',     required:true,  aliases:['ARQUIVO_DE_ORIGEM','ARQUIVO DE ORIGEM','ARQUIVO DO RECEBIMENTO','ARQUIVO DO BOLETO'] },
+    { key:'codigo_cliente', label:'Codigo Cliente',        required:false, aliases:['Codigo Cliente','Codigo','CODIGO PARCEIRO','Codigo Parceiro','cod_cliente','IDENTIFICADOR'] },
+    { key:'numero_cliente', label:'Numero Cliente',        required:false, aliases:['Numero Cliente','NumeroCliente','N Cliente','UC - ID DO PARCEIRO'] },
+    { key:'cpf',            label:'CPF / CNPJ',            required:false, aliases:['CPF/CNPJ','CPF','CNPJ','UC - CPF/CNPJ'] },
+    { key:'cliente',        label:'Cliente / Nome',        required:false, aliases:['NOME DO CLIENTE','Cliente','Nome','UC - NOME','NOME PARCEIRO'] },
+    { key:'fornecedora',    label:'Fornecedora',           required:false, aliases:['DISTRIBUIDORA','Fornecedora','UC - CONCESSIONARIA'] },
+    { key:'status',         label:'Status',                required:false, aliases:['STATUS','STATUS.1','Status','SITUACAO DO DISPARO'] },
+    { key:'valor',          label:'Valor',                 required:false, aliases:['VALOR DA FATURA (R$)','VALOR DA FATURA','Valor da Fatura','VALOR LIQUIDO (FATURAMENTO)','VALOR LIQUIDO','TOTAL A PAGAR','VALORPARCELA'] },
+    { key:'vencimento',     label:'Vencimento',            required:false, aliases:['DATA DE VENCIMENTO','Data Vencimento','Vencimento','VENCIMENTO FATURA NORTEN','VENCIMENTO CONCESSIONARIA'] },
+    { key:'emissao',        label:'Data de Emissao',       required:false, aliases:['DATA DE EMISSAO','DATA DE EMISSAO - FATURA NORTEN','Data de emissao'] },
+    { key:'codbar',         label:'Codigo de Barras',      required:false, aliases:['CODIGO DE BARRAS','LINHA DIGITAVEL','PIX COPIA E COLA'] },
   ],
   inad_pag: [
     { key:'instalacao',     label:'Instalacao / UC',       required:true,  aliases:['Instala','Instalacao','instalacao','Numero de instalacao','Numero da Instalacao','Numero da Instalação','numinstalacao','num_instalacao','UC'] },
@@ -321,10 +388,60 @@ function autoDetect(headers, aliases) {
   return ''
 }
 
+const MAPPING_STORAGE_PREFIX = 'igreen-column-map:'
+
+function buildDetectedMapping(headers, schema) {
+  const detected = {}
+  schema.forEach(f => {
+    detected[f.key] = autoDetect(headers, f.aliases)
+  })
+  return detected
+}
+
+function filterMappingForHeaders(value, headers) {
+  if (!value || typeof value !== 'object') return null
+  const availableHeaders = new Set(headers)
+  return Object.entries(value).reduce((acc, [key, column]) => {
+    if (typeof column === 'string' && (!column || availableHeaders.has(column))) {
+      acc[key] = column
+    }
+    return acc
+  }, {})
+}
+
+function getStoredMapping(schemaKey, headers) {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(`${MAPPING_STORAGE_PREFIX}${schemaKey}`)
+    return filterMappingForHeaders(raw ? JSON.parse(raw) : null, headers)
+  } catch {
+    return null
+  }
+}
+
+function setStoredMapping(schemaKey, mapping) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(`${MAPPING_STORAGE_PREFIX}${schemaKey}`, JSON.stringify(mapping))
+  } catch {
+    // Se o navegador bloquear storage, o processamento segue normalmente.
+  }
+}
+
+function clearStoredMapping(schemaKey) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(`${MAPPING_STORAGE_PREFIX}${schemaKey}`)
+  } catch {
+    // Sem acao: limpar storage e opcional.
+  }
+}
+
 export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, savedMapping, onConfirm, onCancel }) {
   const schema = SCHEMAS[schemaKey] || []
   const [mapping, setMapping] = useState({})
   const [ucMode, setUcMode] = useState('uc') // 'uc' | 'num_cliente'
+  const [hasStoredMapping, setHasStoredMapping] = useState(false)
   const prevOpenRef = useRef(false)
 
   // Ao abrir (false → true): restaura mapeamento salvo se existir, senão auto-detecta.
@@ -333,17 +450,13 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
     const justOpened = open && !prevOpenRef.current
     prevOpenRef.current = open
     if (!justOpened || !headers.length) return
-    if (savedMapping) {
-      setMapping(savedMapping)
-    } else {
-      const detected = {}
-      schema.forEach(f => {
-        detected[f.key] = autoDetect(headers, f.aliases)
-      })
-      setMapping(detected)
-    }
+    const detected = buildDetectedMapping(headers, schema)
+    const storedMapping = getStoredMapping(schemaKey, headers)
+    const incomingMapping = filterMappingForHeaders(savedMapping, headers)
+    setMapping({ ...detected, ...(storedMapping || {}), ...(incomingMapping || {}) })
+    setHasStoredMapping(Boolean(storedMapping && Object.keys(storedMapping).length))
     setUcMode('uc')
-  }, [open, headers, schemaKey])
+  }, [open, headers, schemaKey, savedMapping, schema])
 
   if (!open) return null
 
@@ -353,6 +466,8 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
 
   const handleConfirm = () => {
     if (missingRequired.length) return
+    setStoredMapping(schemaKey, mapping)
+    setHasStoredMapping(true)
     const remapped = raw.map(row => {
       const out = { ...row }
       schema.forEach(f => {
@@ -364,6 +479,12 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
       return out
     })
     onConfirm(remapped, mapping, { ucMode })
+  }
+
+  const handleClearStoredMapping = () => {
+    clearStoredMapping(schemaKey)
+    setHasStoredMapping(false)
+    setMapping(buildDetectedMapping(headers, schema))
   }
 
   return (
@@ -520,6 +641,14 @@ export function ColumnMapper({ open, raw, headers, schemaKey, title, fileName, s
             }
           </div>
           <div className="flex gap-2">
+            {hasStoredMapping && (
+              <button
+                onClick={handleClearStoredMapping}
+                className="px-4 py-2 text-xs font-medium text-tx3 hover:text-tx border border-bd rounded-lg hover:bg-s3 transition-colors"
+              >
+                Limpar salvo
+              </button>
+            )}
             <button onClick={onCancel}
               className="px-4 py-2 text-xs font-medium text-tx3 hover:text-tx border border-bd rounded-lg hover:bg-s3 transition-colors">
               Cancelar

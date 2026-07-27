@@ -47,6 +47,9 @@ CRITICAL_HEADERS = [
     "IUGU",
 ]
 
+PARCELAMENTO_HEADERS = [header for header in OUTPUT_HEADERS if header != "IDRCB"]
+PARCELAMENTO_CRITICAL_HEADERS = [header for header in CRITICAL_HEADERS if header != "IDRCB"]
+
 
 UPDATE_ALIASES = {
     "idrcb": ["_gmap_idrcb", "IDRCB", "Idrcb", "idrcb", "ID RCB"],
@@ -234,6 +237,13 @@ def _clean(value: Any) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def _parcel_value_from_barcode(value: Any) -> str:
+    digits = re.sub(r"[^0-9]", "", str(value or ""))
+    if len(digits) < 10:
+        return ""
+    return f"{int(digits[-10:]) / 100:.2f}"
+
+
 def _prepare(frame: pl.DataFrame, aliases: dict[str, list[str]], source: str) -> pl.DataFrame:
     fields = {
         "IDRCB": _field(frame, aliases, "idrcb") if "idrcb" in aliases else pl.lit(""),
@@ -360,8 +370,10 @@ def reconcile_atualizacoes(
     df_rec: pl.DataFrame,
     df_pag_northen: pl.DataFrame,
     df_pag_interna: pl.DataFrame,
+    modo: str = "atualizacoes",
 ) -> AtualizacoesResult:
     logs: list[dict[str, str]] = []
+    is_parcelamentos = modo.strip().casefold() == "parcelamentos"
 
     def log(message: str, kind: str = "info") -> None:
         logs.append({"msg": message, "tipo": kind})
@@ -372,6 +384,10 @@ def reconcile_atualizacoes(
         | (pl.col("_idrcb_norm") != "")
         | (pl.col("_barcode_norm") != "")
     )
+    skipped_without_barcode = 0
+    if is_parcelamentos:
+        skipped_without_barcode = updates.filter(pl.col("_barcode_norm") == "").height
+        updates = updates.filter(pl.col("_barcode_norm") != "")
     faturamento = _prepare(df_faturamento, FAT_ALIASES, "Faturamento")
     recebiveis = _prepare(df_rec, REC_ALIASES, "Recebiveis")
     pag_northen = _prepare(df_pag_northen, PAG_ALIASES, "Pagadoria Northen")
@@ -385,7 +401,10 @@ def reconcile_atualizacoes(
     output_rows: list[dict[str, Any]] = []
     audit_rows: list[dict[str, Any]] = []
     pending_rows: list[dict[str, Any]] = []
+    exclusion_rows: list[dict[str, str]] = []
+    exclusion_ids: set[str] = set()
     found_rec = found_fat = found_north = found_int = 0
+    values_from_barcode = missing_exclusion_id = 0
 
     for update in updates.to_dicts():
         rec = _lookup(rec_idx, update)
@@ -398,7 +417,24 @@ def reconcile_atualizacoes(
         found_int += int(internal is not None)
 
         row = _merge_output(update, [fat, north, internal, rec])
-        missing = _missing_critical(row)
+        if is_parcelamentos:
+            parcel_value = _parcel_value_from_barcode(row.get("CÓDIGO DE BARRAS"))
+            if parcel_value:
+                row["VALOR DA FATURA (R$)"] = parcel_value
+                values_from_barcode += 1
+
+            old_idrcb = _clean(update.get("IDRCB")) or _clean(rec.get("IDRCB") if rec else "")
+            if old_idrcb and old_idrcb not in exclusion_ids:
+                exclusion_ids.add(old_idrcb)
+                exclusion_rows.append({"IDRCB": old_idrcb})
+            elif not old_idrcb:
+                missing_exclusion_id += 1
+
+        missing = (
+            [header for header in PARCELAMENTO_CRITICAL_HEADERS if not _clean(row.get(header))]
+            if is_parcelamentos
+            else _missing_critical(row)
+        )
         output_rows.append(row)
         audit = {
             **row,
@@ -413,6 +449,52 @@ def reconcile_atualizacoes(
         audit_rows.append(audit)
         if missing:
             pending_rows.append(audit)
+
+    if is_parcelamentos:
+        parcel_rows = [
+            {header: row.get(header, "") for header in PARCELAMENTO_HEADERS}
+            for row in output_rows
+        ]
+        parcelamentos = (
+            pl.DataFrame(parcel_rows, schema=PARCELAMENTO_HEADERS)
+            if parcel_rows
+            else pl.DataFrame(schema={header: pl.String for header in PARCELAMENTO_HEADERS})
+        )
+        exclusao = (
+            pl.DataFrame(exclusion_rows, schema={"IDRCB": pl.String})
+            if exclusion_rows
+            else pl.DataFrame(schema={"IDRCB": pl.String})
+        )
+        metrics = {
+            "totalParcelamentos": updates.height,
+            "idrcbParaExclusao": exclusao.height,
+            "valoresDerivadosCodigoBarras": values_from_barcode,
+            "solicitacoesSemCodigoBarras": skipped_without_barcode,
+            "semIdrcbParaExclusao": missing_exclusion_id,
+            "encontradasRecebiveis": found_rec,
+            "encontradasFaturamento": found_fat,
+            "encontradasPagadoriaNorthen": found_north,
+            "encontradasPagadoriaInterna": found_int,
+            "linhasComPendencias": len(pending_rows),
+            "linhasProntas": updates.height - len(pending_rows),
+        }
+
+        log(f"Parcelamentos analisados: {updates.height:,}", "ok")
+        log(f"IDRCBs separados para exclusao: {exclusao.height:,}", "ok")
+        log(f"Valores obtidos dos 10 digitos finais do codigo de barras: {values_from_barcode:,}", "ok")
+        log(f"Matches: Recebiveis {found_rec:,} | Faturamento {found_fat:,} | Northen {found_north:,} | Interna {found_int:,}", "ok")
+        if skipped_without_barcode:
+            log(f"Solicitacoes COM P ignoradas por nao terem codigo de barras: {skipped_without_barcode:,}", "warn")
+        if missing_exclusion_id:
+            log(f"Parcelamentos sem IDRCB para exclusao: {missing_exclusion_id:,}", "warn")
+        if pending_rows:
+            log(f"Linhas com outros campos criticos faltantes: {len(pending_rows):,}", "warn")
+
+        return AtualizacoesResult(
+            sheets={"PARCELAMENTOS": parcelamentos, "EXCLUSÃO": exclusao},
+            metrics=metrics,
+            logs=logs,
+        )
 
     result = pl.DataFrame(output_rows, schema=OUTPUT_HEADERS) if output_rows else pl.DataFrame(schema={header: pl.String for header in OUTPUT_HEADERS})
     audit = pl.DataFrame(audit_rows) if audit_rows else pl.DataFrame()

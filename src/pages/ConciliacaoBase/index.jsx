@@ -6,46 +6,14 @@ import { DataTable } from '../../components/ui/DataTable'
 import { TabBar } from '../../components/ui/TabBar'
 import { Button } from '../../components/ui/Button'
 import { ColumnMapper } from '../../components/ui/ColumnMapper'
+import { LoadingSquares } from '../../components/ui/LoadingSquares'
+import { ProcessMetaLine } from '../../components/ui/ProcessMetaLine'
 import { normalizarRows } from '../../utils/normalizadores'
 import { uploadSpreadsheet, processConciliacao, workbookConciliacaoUrl, downloadUrl } from '../../utils/pythonApi'
 
 // ── Helpers foram movidos para o backend (Polars) ─────────────────────────
 
 // ── export ─────────────────────────────────────────────────────────────────
-
-function exportarConciliacao(res, fornecedora) {
-  const clean = row => Object.fromEntries(
-    Object.entries(row).filter(([k]) => !k.startsWith('_')).map(([k, v]) => [k, v == null ? '' : v])
-  )
-  const wb = XLSX.utils.book_new()
-
-  const resumo = [
-    [`Conciliação de Base${fornecedora ? ' — ' + fornecedora : ''}`, ''],
-    ['Data', new Date().toLocaleDateString('pt-BR')],
-    ['', ''],
-    ['Marcação', 'Quantidade'],
-    ['Total na Base', res.total],
-    ...MARCACOES.map(m => [m.label, (res[m.key] || []).length]),
-  ]
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumo), 'RESUMO')
-
-  for (const m of MARCACOES) {
-    const rows = res[m.key] || []
-    if (rows.length) {
-      const nome = `${m.num || '0'} - ${m.label.replace(/.*— /, '').substring(0, 25)}`
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.map(clean)), nome)
-    }
-  }
-
-  const buf  = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  const blob = new Blob([buf], { type: 'application/octet-stream' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href = url
-  a.download = `conciliacao_base_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 // ── marcações config ────────────────────────────────────────────────────────
 
@@ -136,7 +104,7 @@ export function ConciliacaoBase({ fornecedora = '' }) {
         status: { upload_id: statusId, mapping: savedMappings.status },
       }
       const r = await processConciliacao(payload)
-      setRes(r.counts)
+      setRes({ ...(r.counts || {}), meta: r.meta })
       setJobId(r.job_id)
       setAba(MARCACOES.find(m => (r.counts[m.key] || 0) > 0)?.key || 'm1')
     } catch (e) { alert('Erro ao processar: ' + e.message) }
@@ -219,6 +187,9 @@ export function ConciliacaoBase({ fornecedora = '' }) {
           </div>
         )}
       </div>
+
+      <LoadingSquares active={proc} label="Processando conciliacao" />
+      <ProcessMetaLine meta={res?.meta} />
 
       {res && (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">

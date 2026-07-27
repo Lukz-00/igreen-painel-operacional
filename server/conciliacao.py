@@ -32,7 +32,7 @@ def parse_dias(v):
         data = datetime(int(match.group(3)), int(match.group(2)), int(match.group(1)))
         diff = (datetime.now() - data).days
         return abs(diff)
-    except:
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
